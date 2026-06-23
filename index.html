@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="hu">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <style>
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #ffffff;
+      font-family: Arial, sans-serif;
+    }
+
+    #foxpostFrame {
+      width: 100%;
+      height: 950px;
+      border: 0;
+      display: block;
+    }
+  </style>
+</head>
+
+<body>
+  <iframe
+    id="foxpostFrame"
+    src="https://cdn.foxpost.hu/apt-finder/v1/app/"
+    width="100%"
+    height="950"
+    frameborder="0"
+    loading="lazy">
+  </iframe>
+
+  <script>
+    const WRAPPER_VERSION = "nutri-a-foxpost-wrapper-mpl-style-v1";
+
+    console.log("FOXPOST wrapper loaded:", WRAPPER_VERSION);
+
+    function parseMaybeJson(value) {
+      if (!value) {
+        return null;
+      }
+
+      if (typeof value === "object") {
+        return value;
+      }
+
+      if (typeof value === "string") {
+        try {
+          return JSON.parse(value);
+        } catch (error) {
+          console.log("FOXPOST wrapper: non-JSON message ignored:", value);
+          return null;
+        }
+      }
+
+      return null;
+    }
+
+    function looksLikeFoxpostPoint(value) {
+      if (!value || typeof value !== "object") {
+        return false;
+      }
+
+      const hasName = Boolean(value.name);
+      const hasAddress = Boolean(value.address || value.city || value.street);
+      const hasId = Boolean(
+        value.operator_id ||
+        value.operatorId ||
+        value.place_id ||
+        value.placeId ||
+        value.destinationId
+      );
+
+      return hasName && hasAddress && hasId;
+    }
+
+    function normalizeFoxpostPoint(point) {
+      const destinationId =
+        point.operator_id ||
+        point.operatorId ||
+        point.place_id ||
+        point.placeId ||
+        point.destinationId ||
+        "";
+
+      return {
+        destinationId: String(destinationId),
+
+        operatorId: point.operator_id || point.operatorId || "",
+        placeId: point.place_id || point.placeId || "",
+
+        name: point.name || "",
+        address: point.address || "",
+        zip: point.zip || "",
+        city: point.city || "",
+        street: point.street || "",
+        findme: point.findme || "",
+
+        variant: point.variant || "",
+        service: point.service || "",
+        serviceString: point.serviceString || "",
+
+        paymentOptions: point.paymentOptions || "",
+        paymentOptionsString: point.paymentOptionsString || "",
+
+        load: point.load || "",
+        country: point.country || "",
+
+        geolat: point.geolat || "",
+        geolng: point.geolng || ""
+      };
+    }
+
+    function receiveMessage(event) {
+      console.log("FOXPOST wrapper raw message:", event.origin, event.data);
+
+      const apt = parseMaybeJson(event.data);
+
+      if (!looksLikeFoxpostPoint(apt)) {
+        return;
+      }
+
+      const selectedPoint = normalizeFoxpostPoint(apt);
+
+      const payload = {
+        type: "FOXPOST_SELECTED",
+        source: "nutri-a-foxpost-wrapper",
+        version: WRAPPER_VERSION,
+        data: selectedPoint
+      };
+
+      console.log("FOXPOST wrapper sends to Wix:", payload);
+
+      /*
+        Fontos:
+        Stringként küldjük tovább, mert ez közelebb áll a korábbi MPL-es működéshez,
+        és Wix HTML Component esetén stabilabb.
+      */
+      window.parent.postMessage(JSON.stringify(payload), "*");
+    }
+
+    window.addEventListener("message", receiveMessage, false);
+  </script>
+</body>
+</html>
