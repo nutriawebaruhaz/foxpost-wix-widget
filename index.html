@@ -36,14 +36,10 @@
   </iframe>
 
   <script>
-    const WRAPPER_VERSION = "nutri-a-foxpost-wrapper-mpl-style-v1";
-
-    console.log("FOXPOST wrapper loaded:", WRAPPER_VERSION);
+    console.log("Nutri-A FOXPOST wrapper betöltött - MPL kompatibilis verzió");
 
     function parseMaybeJson(value) {
-      if (!value) {
-        return null;
-      }
+      if (!value) return null;
 
       if (typeof value === "object") {
         return value;
@@ -53,7 +49,7 @@
         try {
           return JSON.parse(value);
         } catch (error) {
-          console.log("FOXPOST wrapper: non-JSON message ignored:", value);
+          console.log("FOXPOST wrapper: nem JSON üzenet, kihagyva:", value);
           return null;
         }
       }
@@ -61,14 +57,31 @@
       return null;
     }
 
+    function clean(value) {
+      return String(value || "")
+        .replace(/\s+/g, " ")
+        .replace(/[|\n\r;]/g, ",")
+        .trim();
+    }
+
+    function shorten(value, maxLength) {
+      var text = clean(value);
+
+      if (text.length <= maxLength) {
+        return text;
+      }
+
+      return text.substring(0, maxLength - 3) + "...";
+    }
+
     function looksLikeFoxpostPoint(value) {
       if (!value || typeof value !== "object") {
         return false;
       }
 
-      const hasName = Boolean(value.name);
-      const hasAddress = Boolean(value.address || value.city || value.street);
-      const hasId = Boolean(
+      var hasName = Boolean(value.name);
+      var hasAddress = Boolean(value.address || value.city || value.street);
+      var hasId = Boolean(
         value.operator_id ||
         value.operatorId ||
         value.place_id ||
@@ -79,69 +92,68 @@
       return hasName && hasAddress && hasId;
     }
 
-    function normalizeFoxpostPoint(point) {
-      const destinationId =
+    function buildFoxpostNote(point) {
+      var destinationId = clean(
         point.operator_id ||
         point.operatorId ||
         point.place_id ||
         point.placeId ||
-        point.destinationId ||
-        "";
+        point.destinationId
+      );
 
-      return {
-        destinationId: String(destinationId),
+      var operatorId = clean(point.operator_id || point.operatorId);
+      var placeId = clean(point.place_id || point.placeId);
+      var name = clean(point.name);
+      var address = clean(point.address);
+      var zip = clean(point.zip);
+      var city = clean(point.city);
+      var street = clean(point.street);
+      var findme = shorten(point.findme, 140);
+      var variant = clean(point.variant);
+      var serviceString = clean(point.serviceString);
+      var paymentOptionsString = clean(point.paymentOptionsString);
 
-        operatorId: point.operator_id || point.operatorId || "",
-        placeId: point.place_id || point.placeId || "",
+      var parts = [
+        "[FOXPOST]",
+        destinationId ? "destination=" + destinationId : "",
+        operatorId ? "operator=" + operatorId : "",
+        placeId ? "place=" + placeId : "",
+        name ? "name=" + name : "",
+        address ? "address=" + address : "",
+        zip ? "zip=" + zip : "",
+        city ? "city=" + city : "",
+        street ? "street=" + street : "",
+        findme ? "findme=" + findme : "",
+        variant ? "type=" + variant : "",
+        serviceString ? "service=" + serviceString : "",
+        paymentOptionsString ? "payment=" + paymentOptionsString : ""
+      ];
 
-        name: point.name || "",
-        address: point.address || "",
-        zip: point.zip || "",
-        city: point.city || "",
-        street: point.street || "",
-        findme: point.findme || "",
-
-        variant: point.variant || "",
-        service: point.service || "",
-        serviceString: point.serviceString || "",
-
-        paymentOptions: point.paymentOptions || "",
-        paymentOptionsString: point.paymentOptionsString || "",
-
-        load: point.load || "",
-        country: point.country || "",
-
-        geolat: point.geolat || "",
-        geolng: point.geolng || ""
-      };
+      return parts.filter(Boolean).join(" | ");
     }
 
     function receiveMessage(event) {
-      console.log("FOXPOST wrapper raw message:", event.origin, event.data);
+      console.log("FOXPOST raw message:", event.origin, event.data);
 
-      const apt = parseMaybeJson(event.data);
+      var apt = parseMaybeJson(event.data);
 
       if (!looksLikeFoxpostPoint(apt)) {
         return;
       }
 
-      const selectedPoint = normalizeFoxpostPoint(apt);
+      var foxpostNote = buildFoxpostNote(apt);
 
-      const payload = {
-        type: "FOXPOST_SELECTED",
-        source: "nutri-a-foxpost-wrapper",
-        version: WRAPPER_VERSION,
-        data: selectedPoint
-      };
-
-      console.log("FOXPOST wrapper sends to Wix:", payload);
+      console.log("FOXPOST note küldése Wixnek:", foxpostNote);
 
       /*
-        Fontos:
-        Stringként küldjük tovább, mert ez közelebb áll a korábbi MPL-es működéshez,
-        és Wix HTML Component esetén stabilabb.
+        EZ A LÉNYEG:
+        Pontosan ugyanazt az üzenetformátumot küldjük,
+        amit a régi működő MPL-es Cart Page kód vár.
       */
-      window.parent.postMessage(JSON.stringify(payload), "*");
+      window.parent.postMessage({
+        type: "MPL_SELECTED",
+        data: foxpostNote
+      }, "*");
     }
 
     window.addEventListener("message", receiveMessage, false);
