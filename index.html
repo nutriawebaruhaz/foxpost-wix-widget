@@ -39,7 +39,9 @@
     console.log("Nutri-A FOXPOST wrapper betöltött - MPL_SELECTED kompatibilis verzió");
 
     function parseMaybeJson(value) {
-      if (!value) return null;
+      if (!value) {
+        return null;
+      }
 
       if (typeof value === "object") {
         return value;
@@ -145,6 +147,10 @@
 
       console.log("FOXPOST note küldése Wixnek:", foxpostNote);
 
+      /*
+        Ez szándékosan MPL_SELECTED.
+        A régi, működő Wix Cart Page kód ezt a formátumot várja.
+      */
       window.parent.postMessage({
         type: "MPL_SELECTED",
         data: foxpostNote
