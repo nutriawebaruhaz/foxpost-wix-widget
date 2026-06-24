@@ -36,7 +36,7 @@
   </iframe>
 
   <script>
-    console.log("Nutri-A FOXPOST wrapper betöltött - MPL kompatibilis verzió");
+    console.log("Nutri-A FOXPOST wrapper betöltött - MPL_SELECTED kompatibilis verzió");
 
     function parseMaybeJson(value) {
       if (!value) return null;
@@ -49,7 +49,7 @@
         try {
           return JSON.parse(value);
         } catch (error) {
-          console.log("FOXPOST wrapper: nem JSON üzenet, kihagyva:", value);
+          console.log("Nem JSON üzenet, kihagyva:", value);
           return null;
         }
       }
@@ -145,11 +145,6 @@
 
       console.log("FOXPOST note küldése Wixnek:", foxpostNote);
 
-      /*
-        EZ A LÉNYEG:
-        Pontosan ugyanazt az üzenetformátumot küldjük,
-        amit a régi működő MPL-es Cart Page kód vár.
-      */
       window.parent.postMessage({
         type: "MPL_SELECTED",
         data: foxpostNote
