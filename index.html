@@ -36,6 +36,7 @@
       background: #fafafa;
       font-size: 13px;
       display: none;
+      line-height: 1.45;
     }
 
     .selected b {
@@ -47,6 +48,13 @@
       font-size: 12px;
       opacity: .65;
       margin-top: 6px;
+    }
+
+    .debug {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #555;
+      word-break: break-word;
     }
 
     :focus {
@@ -70,11 +78,12 @@
       <b>Kiválasztva:</b>
       <div id="selectedText"></div>
       <div class="small">A választás automatikusan mentésre kerül a kosár megjegyzésébe.</div>
+      <div class="debug" id="debugText"></div>
     </div>
   </div>
 
   <script>
-    console.log("FOXPOST widget wrapper loaded - MPL compatible");
+    console.log("FOXPOST widget wrapper loaded - MPL compatible v2");
 
     function parseMaybeJson(value) {
       if (!value) {
@@ -129,6 +138,8 @@
     function buildSelectedPointText(data) {
       var operatorId = clean(data.operator_id);
       var placeId = clean(data.place_id);
+      var destination = operatorId || placeId;
+
       var name = clean(data.name);
       var zip = clean(data.zip);
       var city = clean(data.city);
@@ -145,6 +156,7 @@
         + " | " + (name || "-")
         + " | " + ((zip ? zip : "") + (city ? (" " + city) : "")).trim()
         + " | " + (address || street || "-")
+        + " | DESTINATION:" + (destination || "-")
         + " | OPERATOR:" + (operatorId || "-")
         + " | PLACE:" + (placeId || "-")
         + (variant ? (" | TYPE:" + variant) : "")
@@ -153,6 +165,45 @@
         + (load ? (" | LOAD:" + load) : "")
         + (country ? (" | COUNTRY:" + country) : "")
         + (findme ? (" | FINDME:" + findme) : "");
+    }
+
+    function showSelected(selectedPointText, rawData) {
+      var box = document.getElementById("selectedBox");
+      var text = document.getElementById("selectedText");
+      var debug = document.getElementById("debugText");
+
+      if (box && text) {
+        box.style.display = "block";
+        text.textContent = selectedPointText;
+      }
+
+      if (debug) {
+        debug.textContent = "FOXPOST adat megérkezett a wrapperbe. " + new Date().toLocaleTimeString();
+      }
+
+      console.log("FOXPOST kiválasztás feldolgozva:", selectedPointText, rawData);
+    }
+
+    function sendToWix(selectedPointText) {
+      var payload = {
+        type: "MPL_SELECTED",
+        data: selectedPointText
+      };
+
+      console.log("FOXPOST küldés Wix felé object:", payload);
+
+      /*
+        1) MPL-hez azonos object forma.
+        2) Tartalék JSON string forma.
+        3) Tartalék top irány, ha a Wix belső iframe-réteg miatt parent nem elég.
+      */
+      window.parent.postMessage(payload, "*");
+      window.parent.postMessage(JSON.stringify(payload), "*");
+
+      if (window.top && window.top !== window.parent) {
+        window.top.postMessage(payload, "*");
+        window.top.postMessage(JSON.stringify(payload), "*");
+      }
     }
 
     function receiveMessage(event) {
@@ -166,25 +217,8 @@
 
       var selectedPointText = buildSelectedPointText(data);
 
-      var box = document.getElementById("selectedBox");
-      var text = document.getElementById("selectedText");
-
-      if (box && text) {
-        box.style.display = "block";
-        text.textContent = selectedPointText;
-      }
-
-      console.log("FOXPOST küldés Wix felé:", selectedPointText);
-
-      /*
-        FONTOS:
-        Ez direkt MPL_SELECTED, mert a működő Wix Cart Page kód ezt várja.
-        Ugyanaz a forma, mint az MPL GitHub index.html-ben.
-      */
-      window.parent.postMessage({
-        type: "MPL_SELECTED",
-        data: selectedPointText
-      }, "*");
+      showSelected(selectedPointText, data);
+      sendToWix(selectedPointText);
     }
 
     window.addEventListener("message", receiveMessage, false);
