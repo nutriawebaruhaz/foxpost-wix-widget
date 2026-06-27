@@ -2,41 +2,79 @@
 <html lang="hu">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>FOXPOST átvevőhely választó</title>
 
   <style>
-    html,
-    body {
+    html, body {
+      height: 100%;
       margin: 0;
       padding: 0;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background: #ffffff;
       font-family: Arial, sans-serif;
+      background: #fff;
+    }
+
+    .wrap {
+      padding: 10px;
+      box-sizing: border-box;
     }
 
     #foxpostFrame {
       width: 100%;
-      height: 950px;
-      border: 0;
+      height: 700px;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid #eee;
       display: block;
+    }
+
+    .selected {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border: 1px solid #eee;
+      border-radius: 14px;
+      background: #fafafa;
+      font-size: 13px;
+      display: none;
+    }
+
+    .selected b {
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .small {
+      font-size: 12px;
+      opacity: .65;
+      margin-top: 6px;
+    }
+
+    :focus {
+      outline: none !important;
     }
   </style>
 </head>
 
 <body>
-  <iframe
-    id="foxpostFrame"
-    src="https://cdn.foxpost.hu/apt-finder/v1/app/"
-    width="100%"
-    height="950"
-    frameborder="0"
-    loading="lazy">
-  </iframe>
+  <div class="wrap">
+    <iframe
+      id="foxpostFrame"
+      src="https://cdn.foxpost.hu/apt-finder/v1/app/"
+      width="100%"
+      height="700"
+      frameborder="0"
+      loading="lazy">
+    </iframe>
+
+    <div class="selected" id="selectedBox">
+      <b>Kiválasztva:</b>
+      <div id="selectedText"></div>
+      <div class="small">A választás automatikusan mentésre kerül a kosár megjegyzésébe.</div>
+    </div>
+  </div>
 
   <script>
-    console.log("Nutri-A FOXPOST wrapper betöltött - MPL_SELECTED kompatibilis verzió");
+    console.log("FOXPOST widget wrapper loaded - MPL compatible");
 
     function parseMaybeJson(value) {
       if (!value) {
@@ -51,7 +89,7 @@
         try {
           return JSON.parse(value);
         } catch (error) {
-          console.log("Nem JSON üzenet, kihagyva:", value);
+          console.log("FOXPOST: nem JSON üzenet, kihagyva:", value);
           return null;
         }
       }
@@ -83,77 +121,69 @@
 
       var hasName = Boolean(value.name);
       var hasAddress = Boolean(value.address || value.city || value.street);
-      var hasId = Boolean(
-        value.operator_id ||
-        value.operatorId ||
-        value.place_id ||
-        value.placeId ||
-        value.destinationId
-      );
+      var hasId = Boolean(value.operator_id || value.place_id);
 
       return hasName && hasAddress && hasId;
     }
 
-    function buildFoxpostNote(point) {
-      var destinationId = clean(
-        point.operator_id ||
-        point.operatorId ||
-        point.place_id ||
-        point.placeId ||
-        point.destinationId
-      );
+    function buildSelectedPointText(data) {
+      var operatorId = clean(data.operator_id);
+      var placeId = clean(data.place_id);
+      var name = clean(data.name);
+      var zip = clean(data.zip);
+      var city = clean(data.city);
+      var address = clean(data.address);
+      var street = clean(data.street);
+      var findme = shorten(data.findme, 160);
+      var variant = clean(data.variant);
+      var serviceString = clean(data.serviceString);
+      var paymentOptionsString = clean(data.paymentOptionsString);
+      var load = clean(data.load);
+      var country = clean(data.country);
 
-      var operatorId = clean(point.operator_id || point.operatorId);
-      var placeId = clean(point.place_id || point.placeId);
-      var name = clean(point.name);
-      var address = clean(point.address);
-      var zip = clean(point.zip);
-      var city = clean(point.city);
-      var street = clean(point.street);
-      var findme = shorten(point.findme, 140);
-      var variant = clean(point.variant);
-      var serviceString = clean(point.serviceString);
-      var paymentOptionsString = clean(point.paymentOptionsString);
-
-      var parts = [
-        "[FOXPOST]",
-        destinationId ? "destination=" + destinationId : "",
-        operatorId ? "operator=" + operatorId : "",
-        placeId ? "place=" + placeId : "",
-        name ? "name=" + name : "",
-        address ? "address=" + address : "",
-        zip ? "zip=" + zip : "",
-        city ? "city=" + city : "",
-        street ? "street=" + street : "",
-        findme ? "findme=" + findme : "",
-        variant ? "type=" + variant : "",
-        serviceString ? "service=" + serviceString : "",
-        paymentOptionsString ? "payment=" + paymentOptionsString : ""
-      ];
-
-      return parts.filter(Boolean).join(" | ");
+      return "FOXPOST"
+        + " | " + (name || "-")
+        + " | " + ((zip ? zip : "") + (city ? (" " + city) : "")).trim()
+        + " | " + (address || street || "-")
+        + " | OPERATOR:" + (operatorId || "-")
+        + " | PLACE:" + (placeId || "-")
+        + (variant ? (" | TYPE:" + variant) : "")
+        + (serviceString ? (" | SERVICE:" + serviceString) : "")
+        + (paymentOptionsString ? (" | PAYMENT:" + paymentOptionsString) : "")
+        + (load ? (" | LOAD:" + load) : "")
+        + (country ? (" | COUNTRY:" + country) : "")
+        + (findme ? (" | FINDME:" + findme) : "");
     }
 
     function receiveMessage(event) {
       console.log("FOXPOST raw message:", event.origin, event.data);
 
-      var apt = parseMaybeJson(event.data);
+      var data = parseMaybeJson(event.data);
 
-      if (!looksLikeFoxpostPoint(apt)) {
+      if (!looksLikeFoxpostPoint(data)) {
         return;
       }
 
-      var foxpostNote = buildFoxpostNote(apt);
+      var selectedPointText = buildSelectedPointText(data);
 
-      console.log("FOXPOST note küldése Wixnek:", foxpostNote);
+      var box = document.getElementById("selectedBox");
+      var text = document.getElementById("selectedText");
+
+      if (box && text) {
+        box.style.display = "block";
+        text.textContent = selectedPointText;
+      }
+
+      console.log("FOXPOST küldés Wix felé:", selectedPointText);
 
       /*
-        Ez szándékosan MPL_SELECTED.
-        A régi, működő Wix Cart Page kód ezt a formátumot várja.
+        FONTOS:
+        Ez direkt MPL_SELECTED, mert a működő Wix Cart Page kód ezt várja.
+        Ugyanaz a forma, mint az MPL GitHub index.html-ben.
       */
       window.parent.postMessage({
         type: "MPL_SELECTED",
-        data: foxpostNote
+        data: selectedPointText
       }, "*");
     }
 
