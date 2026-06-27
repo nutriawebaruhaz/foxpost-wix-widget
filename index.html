@@ -10,86 +10,186 @@
     href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
   />
 
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"
+  />
+
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"
+  />
+
   <style>
+    :root {
+      --fox-red: #c90000;
+      --fox-red-dark: #990000;
+      --fox-bg: #ffffff;
+      --fox-text: #171717;
+      --fox-muted: #666666;
+      --fox-border: #e7e7e7;
+      --nutri-navy: #0c172b;
+      --nutri-green: #8CDA3F;
+      --soft: #f7f7f7;
+    }
+
     html, body {
       height: 100%;
       margin: 0;
       padding: 0;
       font-family: Arial, sans-serif;
-      background: #fff;
+      background: transparent;
+      color: var(--fox-text);
     }
 
     .wrap {
-      padding: 10px;
       box-sizing: border-box;
+      width: 100%;
+      background: var(--fox-bg);
+      border-radius: 18px;
+      overflow: hidden;
+      border: 1px solid rgba(0,0,0,.06);
+      box-shadow: 0 12px 34px rgba(0,0,0,.10);
+    }
+
+    .header {
+      background: linear-gradient(135deg, #c90000 0%, #9f0000 100%);
+      color: #fff;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 900;
+      letter-spacing: .2px;
+      font-size: 18px;
+    }
+
+    .foxMark {
+      width: 34px;
+      height: 34px;
+      border-radius: 12px;
+      background: #fff;
+      color: var(--fox-red);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      font-size: 17px;
+      box-shadow: 0 6px 18px rgba(0,0,0,.16);
+    }
+
+    .headerText {
+      font-size: 12px;
+      opacity: .95;
+      text-align: right;
+      line-height: 1.35;
     }
 
     .topbar {
-      display: flex;
+      display: grid;
+      grid-template-columns: 1fr auto auto;
       gap: 10px;
       align-items: center;
-      flex-wrap: wrap;
-      margin-bottom: 10px;
+      padding: 14px;
+      background: #fff;
+      border-bottom: 1px solid var(--fox-border);
     }
 
-    label {
+    .field {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--soft);
+      border: 1px solid var(--fox-border);
+      border-radius: 14px;
+      padding: 0 12px;
+      min-width: 0;
+    }
+
+    .field span {
       font-size: 13px;
-      opacity: .9;
+      font-weight: 700;
+      white-space: nowrap;
+      color: #333;
     }
 
     input {
-      width: 220px;
-      padding: 8px 10px;
-      border: 1px solid #d7d7d7;
-      border-radius: 10px;
+      width: 100%;
+      min-width: 130px;
+      padding: 12px 2px;
+      border: 0;
       outline: none;
+      background: transparent;
+      font-size: 14px;
+      color: var(--fox-text);
     }
 
-    input:focus {
-      border-color: #9a9a9a;
+    input::placeholder {
+      color: #8a8a8a;
     }
 
     button {
       border: 0;
-      border-radius: 10px;
-      padding: 9px 12px;
       cursor: pointer;
-      font-weight: 700;
+      font-weight: 800;
+      transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
+    }
+
+    button:active {
+      transform: scale(.98);
     }
 
     .searchBtn {
-      background: #0c172b;
-      color: #ffffff;
+      background: var(--nutri-navy);
+      color: #fff;
+      border-radius: 14px;
+      padding: 13px 18px;
+      box-shadow: 0 8px 18px rgba(12,23,43,.18);
     }
 
-    .selectBtn {
-      width: 100%;
-      margin-top: 8px;
-      background: #c60000;
-      color: #ffffff;
-      border-radius: 8px;
-      padding: 10px 12px;
+    .searchBtn:hover {
+      background: #17243d;
     }
 
-    .hint {
+    .locBtn {
+      background: #fff;
+      color: var(--fox-red);
+      border: 1px solid var(--fox-border);
+      border-radius: 14px;
+      padding: 13px 14px;
+    }
+
+    .countPill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #fff5f5;
+      color: var(--fox-red);
+      border: 1px solid #ffd4d4;
+      border-radius: 999px;
+      padding: 9px 12px;
       font-size: 12px;
-      opacity: .7;
+      font-weight: 800;
+      white-space: nowrap;
     }
 
     #map {
       width: 100%;
-      height: 620px;
-      border-radius: 14px;
-      overflow: hidden;
-      border: 1px solid #eee;
+      height: 640px;
+      background: #eef1f3;
     }
 
     .selected {
-      margin-top: 10px;
-      padding: 10px 12px;
-      border: 1px solid #eee;
-      border-radius: 14px;
-      background: #fafafa;
+      padding: 12px 14px;
+      border-top: 1px solid var(--fox-border);
+      background: #fff;
       font-size: 13px;
       display: none;
       line-height: 1.45;
@@ -98,6 +198,7 @@
     .selected b {
       display: block;
       margin-bottom: 6px;
+      color: var(--fox-red);
     }
 
     .small {
@@ -107,9 +208,10 @@
     }
 
     .status {
-      margin-top: 8px;
+      padding: 10px 14px 14px;
       font-size: 12px;
-      color: #555;
+      color: var(--fox-muted);
+      background: #fff;
     }
 
     .error {
@@ -117,29 +219,185 @@
       font-weight: 700;
     }
 
-    .popupTitle {
-      font-weight: 700;
-      color: #b00020;
+    .leaflet-control-zoom a {
+      border-radius: 10px !important;
       margin-bottom: 4px;
+      border: 1px solid rgba(0,0,0,.08) !important;
+      color: var(--fox-red) !important;
+      font-weight: 900;
+    }
+
+    .leaflet-popup-content-wrapper {
+      border-radius: 18px;
+      box-shadow: 0 12px 30px rgba(0,0,0,.18);
+      border: 1px solid rgba(0,0,0,.06);
+      overflow: hidden;
+    }
+
+    .leaflet-popup-content {
+      margin: 0;
+      width: 310px !important;
+      font-size: 13px;
+    }
+
+    .popupCard {
+      background: #fff;
+    }
+
+    .popupHead {
+      background: linear-gradient(135deg, #c90000 0%, #a40000 100%);
+      color: #fff;
+      padding: 12px 14px;
+      font-weight: 900;
+      font-size: 15px;
+      line-height: 1.25;
+    }
+
+    .popupBody {
+      padding: 12px 14px 14px;
     }
 
     .popupLine {
-      margin: 3px 0;
+      margin: 6px 0;
+      color: #333;
+      line-height: 1.35;
     }
 
-    :focus {
-      outline: none !important;
+    .popupMeta {
+      margin-top: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .tag {
+      background: #f4f4f4;
+      border: 1px solid #e8e8e8;
+      border-radius: 999px;
+      padding: 5px 8px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #444;
+    }
+
+    .selectBtn {
+      width: 100%;
+      margin-top: 12px;
+      background: var(--fox-red);
+      color: #fff;
+      border-radius: 13px;
+      padding: 12px 14px;
+      box-shadow: 0 8px 18px rgba(201,0,0,.20);
+      font-size: 14px;
+    }
+
+    .selectBtn:hover {
+      background: var(--fox-red-dark);
+    }
+
+    .foxMarker {
+      width: 34px;
+      height: 34px;
+      border-radius: 50% 50% 50% 8px;
+      background: var(--fox-red);
+      transform: rotate(-45deg);
+      border: 3px solid #fff;
+      box-shadow: 0 7px 18px rgba(0,0,0,.25);
+      position: relative;
+    }
+
+    .foxMarker::after {
+      content: "F";
+      position: absolute;
+      inset: 0;
+      transform: rotate(45deg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 15px;
+      font-weight: 900;
+      font-family: Arial, sans-serif;
+    }
+
+    .foxMarker.zbox {
+      background: #ff7a00;
+    }
+
+    .foxMarker.zpoint,
+    .foxMarker.packeta {
+      background: #19a35b;
+    }
+
+    .foxMarker.unknown {
+      background: #777;
+    }
+
+    .marker-cluster-small,
+    .marker-cluster-medium,
+    .marker-cluster-large {
+      background-color: rgba(201, 0, 0, .18);
+    }
+
+    .marker-cluster-small div,
+    .marker-cluster-medium div,
+    .marker-cluster-large div {
+      background: linear-gradient(135deg, #c90000 0%, #970000 100%);
+      color: #fff;
+      font-weight: 900;
+      border: 3px solid #fff;
+      box-shadow: 0 8px 18px rgba(0,0,0,.25);
+    }
+
+    @media (max-width: 720px) {
+      .header {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .headerText {
+        text-align: left;
+      }
+
+      .topbar {
+        grid-template-columns: 1fr;
+      }
+
+      .countPill {
+        justify-content: flex-start;
+      }
+
+      #map {
+        height: 560px;
+      }
+
+      .leaflet-popup-content {
+        width: 280px !important;
+      }
     }
   </style>
 </head>
 
 <body>
   <div class="wrap">
+    <div class="header">
+      <div class="brand">
+        <div class="foxMark">F</div>
+        <div>FOXPOST átvevőhely választó</div>
+      </div>
+      <div class="headerText">
+        Válassz csomagautomatát vagy átvevőpontot<br>
+        a rendelésedhez
+      </div>
+    </div>
+
     <div class="topbar">
-      <label for="searchInput">Település / irányítószám / cím:</label>
-      <input id="searchInput" type="text" placeholder="pl. Budapest, 1088, Múzeum" />
+      <div class="field">
+        <span>Keresés</span>
+        <input id="searchInput" type="text" placeholder="pl. Budapest, 1088, Múzeum" />
+      </div>
       <button class="searchBtn" id="searchBtn">Keresés</button>
-      <div class="hint" id="countText">FOXPOST pontok betöltése...</div>
+      <div class="countPill" id="countText">FOXPOST pontok betöltése...</div>
     </div>
 
     <div id="map"></div>
@@ -154,15 +412,16 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 
   <script>
-    console.log("FOXPOST saját Leaflet widget betöltött - MPL kompatibilis");
+    console.log("FOXPOST saját skines Leaflet widget betöltött - MPL kompatibilis");
 
     var FOXPOST_JSON_URL = "https://cdn.foxpost.hu/foxplus.json";
 
     var map;
+    var clusterGroup;
     var allPoints = [];
-    var markers = [];
     var pointsByKey = {};
 
     function clean(value) {
@@ -174,12 +433,7 @@
 
     function shorten(value, maxLength) {
       var text = clean(value);
-
-      if (text.length <= maxLength) {
-        return text;
-      }
-
-      return text.substring(0, maxLength - 3) + "...";
+      return text.length <= maxLength ? text : text.substring(0, maxLength - 3) + "...";
     }
 
     function escapeHtml(value) {
@@ -195,8 +449,8 @@
       return clean(point.operator_id || point.operatorId || point.place_id || point.placeId);
     }
 
-    function pointKey(point, index) {
-      return getDestination(point) || ("idx_" + index);
+    function pointKey(index) {
+      return "p_" + index;
     }
 
     function normalizePoint(raw) {
@@ -251,6 +505,36 @@
       return [];
     }
 
+    function markerClass(point) {
+      var variant = clean(point.variant).toLowerCase();
+
+      if (variant.indexOf("z-box") !== -1 || variant.indexOf("zbox") !== -1) {
+        return "zbox";
+      }
+
+      if (variant.indexOf("z-point") !== -1 || variant.indexOf("zpont") !== -1 || variant.indexOf("packeta") !== -1) {
+        return "zpoint";
+      }
+
+      if (variant.indexOf("foxpost") !== -1 || !variant) {
+        return "";
+      }
+
+      return "unknown";
+    }
+
+    function markerIcon(point) {
+      var cls = markerClass(point);
+
+      return L.divIcon({
+        className: "",
+        html: '<div class="foxMarker ' + cls + '"></div>',
+        iconSize: [34, 34],
+        iconAnchor: [17, 34],
+        popupAnchor: [0, -30]
+      });
+    }
+
     function buildSelectedPointText(point) {
       var destination = getDestination(point);
       var operatorId = clean(point.operator_id);
@@ -289,32 +573,47 @@
       var variant = escapeHtml(point.variant || "FOXPOST");
       var service = escapeHtml(point.serviceString || "");
       var payment = escapeHtml(point.paymentOptionsString || "");
+      var load = escapeHtml(point.load || "");
 
       return ''
-        + '<div class="popupTitle">' + (name || "FOXPOST átvevőpont") + '</div>'
-        + '<div class="popupLine">' + cityLine + '</div>'
-        + '<div class="popupLine">' + address + '</div>'
-        + '<div class="popupLine">' + variant + '</div>'
-        + (service ? '<div class="popupLine">' + service + '</div>' : '')
-        + (payment ? '<div class="popupLine">' + payment + '</div>' : '')
-        + '<button class="selectBtn" onclick="selectFoxpostPoint(\'' + key + '\')">Csomagautomata kiválasztása</button>';
+        + '<div class="popupCard">'
+        + '<div class="popupHead">' + (name || "FOXPOST átvevőpont") + '</div>'
+        + '<div class="popupBody">'
+        + '<div class="popupLine"><b>Cím:</b> ' + cityLine + ', ' + address + '</div>'
+        + '<div class="popupMeta">'
+        + '<span class="tag">' + variant + '</span>'
+        + (service ? '<span class="tag">' + service + '</span>' : '')
+        + (payment ? '<span class="tag">' + payment + '</span>' : '')
+        + (load ? '<span class="tag">' + load + '</span>' : '')
+        + '</div>'
+        + '<button class="selectBtn" onclick="selectFoxpostPoint(\'' + key + '\')">Csomagautomata kiválasztása</button>'
+        + '</div>'
+        + '</div>';
     }
 
     function initMap() {
-      map = L.map("map").setView([47.1625, 19.5033], 7);
+      map = L.map("map", {
+        zoomControl: true,
+        scrollWheelZoom: true
+      }).setView([47.1625, 19.5033], 7);
 
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 19,
         attribution: "&copy; OpenStreetMap"
       }).addTo(map);
+
+      clusterGroup = L.markerClusterGroup({
+        showCoverageOnHover: false,
+        spiderfyOnMaxZoom: true,
+        disableClusteringAtZoom: 14,
+        maxClusterRadius: 48
+      });
+
+      map.addLayer(clusterGroup);
     }
 
     function clearMarkers() {
-      markers.forEach(function(marker) {
-        map.removeLayer(marker);
-      });
-
-      markers = [];
+      clusterGroup.clearLayers();
     }
 
     function renderPoints(points) {
@@ -331,24 +630,27 @@
           return;
         }
 
-        var key = pointKey(point, index);
+        var key = pointKey(index);
         pointsByKey[key] = point;
 
-        var marker = L.marker([lat, lng]).addTo(map);
-        marker.bindPopup(buildPopupHtml(point, key), {
-          maxWidth: 320
+        var marker = L.marker([lat, lng], {
+          icon: markerIcon(point)
         });
 
-        markers.push(marker);
+        marker.bindPopup(buildPopupHtml(point, key), {
+          maxWidth: 340
+        });
+
+        clusterGroup.addLayer(marker);
         bounds.push([lat, lng]);
       });
 
-      document.getElementById("countText").textContent = points.length + " FOXPOST pont megjelenítve";
+      document.getElementById("countText").textContent = points.length + " átvevőpont";
 
       if (bounds.length) {
         map.fitBounds(bounds, {
-          padding: [20, 20],
-          maxZoom: 13
+          padding: [24, 24],
+          maxZoom: 12
         });
       }
     }
@@ -426,20 +728,20 @@
         var json = await response.json();
         var points = normalizeList(json)
           .filter(function(point) {
-            return getDestination(point) && point.name && (point.geolat || point.geolng);
+            return getDestination(point) && point.name && point.geolat && point.geolng;
           });
 
         allPoints = points;
 
         if (status) {
-          status.textContent = "FOXPOST lista betöltve.";
+          status.textContent = "FOXPOST átvevőpont lista betöltve.";
         }
 
         renderPoints(allPoints);
       } catch (error) {
         console.error("FOXPOST lista betöltési hiba:", error);
 
-        document.getElementById("countText").textContent = "FOXPOST lista betöltési hiba";
+        document.getElementById("countText").textContent = "Betöltési hiba";
 
         if (status) {
           status.innerHTML = '<span class="error">Nem sikerült betölteni a FOXPOST pontokat: '
