@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>FOXPOST átvevőhely választó</title>
 
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
+  />
+
   <style>
     html, body {
       height: 100%;
@@ -19,13 +24,64 @@
       box-sizing: border-box;
     }
 
-    #foxpostFrame {
+    .topbar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+
+    label {
+      font-size: 13px;
+      opacity: .9;
+    }
+
+    input {
+      width: 220px;
+      padding: 8px 10px;
+      border: 1px solid #d7d7d7;
+      border-radius: 10px;
+      outline: none;
+    }
+
+    input:focus {
+      border-color: #9a9a9a;
+    }
+
+    button {
+      border: 0;
+      border-radius: 10px;
+      padding: 9px 12px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .searchBtn {
+      background: #0c172b;
+      color: #ffffff;
+    }
+
+    .selectBtn {
       width: 100%;
-      height: 700px;
+      margin-top: 8px;
+      background: #c60000;
+      color: #ffffff;
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+
+    .hint {
+      font-size: 12px;
+      opacity: .7;
+    }
+
+    #map {
+      width: 100%;
+      height: 620px;
       border-radius: 14px;
       overflow: hidden;
       border: 1px solid #eee;
-      display: block;
     }
 
     .selected {
@@ -50,11 +106,25 @@
       margin-top: 6px;
     }
 
-    .debug {
+    .status {
       margin-top: 8px;
       font-size: 12px;
       color: #555;
-      word-break: break-word;
+    }
+
+    .error {
+      color: #b00020;
+      font-weight: 700;
+    }
+
+    .popupTitle {
+      font-weight: 700;
+      color: #b00020;
+      margin-bottom: 4px;
+    }
+
+    .popupLine {
+      margin: 3px 0;
     }
 
     :focus {
@@ -65,46 +135,35 @@
 
 <body>
   <div class="wrap">
-    <iframe
-      id="foxpostFrame"
-      src="https://cdn.foxpost.hu/apt-finder/v1/app/"
-      width="100%"
-      height="700"
-      frameborder="0"
-      loading="lazy">
-    </iframe>
+    <div class="topbar">
+      <label for="searchInput">Település / irányítószám / cím:</label>
+      <input id="searchInput" type="text" placeholder="pl. Budapest, 1088, Múzeum" />
+      <button class="searchBtn" id="searchBtn">Keresés</button>
+      <div class="hint" id="countText">FOXPOST pontok betöltése...</div>
+    </div>
+
+    <div id="map"></div>
 
     <div class="selected" id="selectedBox">
       <b>Kiválasztva:</b>
       <div id="selectedText"></div>
       <div class="small">A választás automatikusan mentésre kerül a kosár megjegyzésébe.</div>
-      <div class="debug" id="debugText"></div>
     </div>
+
+    <div class="status" id="statusText"></div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+
   <script>
-    console.log("FOXPOST widget wrapper loaded - MPL compatible v2");
+    console.log("FOXPOST saját Leaflet widget betöltött - MPL kompatibilis");
 
-    function parseMaybeJson(value) {
-      if (!value) {
-        return null;
-      }
+    var FOXPOST_JSON_URL = "https://cdn.foxpost.hu/foxplus.json";
 
-      if (typeof value === "object") {
-        return value;
-      }
-
-      if (typeof value === "string") {
-        try {
-          return JSON.parse(value);
-        } catch (error) {
-          console.log("FOXPOST: nem JSON üzenet, kihagyva:", value);
-          return null;
-        }
-      }
-
-      return null;
-    }
+    var map;
+    var allPoints = [];
+    var markers = [];
+    var pointsByKey = {};
 
     function clean(value) {
       return String(value || "")
@@ -123,34 +182,90 @@
       return text.substring(0, maxLength - 3) + "...";
     }
 
-    function looksLikeFoxpostPoint(value) {
-      if (!value || typeof value !== "object") {
-        return false;
-      }
-
-      var hasName = Boolean(value.name);
-      var hasAddress = Boolean(value.address || value.city || value.street);
-      var hasId = Boolean(value.operator_id || value.place_id);
-
-      return hasName && hasAddress && hasId;
+    function escapeHtml(value) {
+      return clean(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
     }
 
-    function buildSelectedPointText(data) {
-      var operatorId = clean(data.operator_id);
-      var placeId = clean(data.place_id);
-      var destination = operatorId || placeId;
+    function getDestination(point) {
+      return clean(point.operator_id || point.operatorId || point.place_id || point.placeId);
+    }
 
-      var name = clean(data.name);
-      var zip = clean(data.zip);
-      var city = clean(data.city);
-      var address = clean(data.address);
-      var street = clean(data.street);
-      var findme = shorten(data.findme, 160);
-      var variant = clean(data.variant);
-      var serviceString = clean(data.serviceString);
-      var paymentOptionsString = clean(data.paymentOptionsString);
-      var load = clean(data.load);
-      var country = clean(data.country);
+    function pointKey(point, index) {
+      return getDestination(point) || ("idx_" + index);
+    }
+
+    function normalizePoint(raw) {
+      var point = raw || {};
+
+      return {
+        place_id: point.place_id || point.placeId || "",
+        operator_id: point.operator_id || point.operatorId || "",
+        name: point.name || "",
+        address: point.address || "",
+        zip: point.zip || "",
+        city: point.city || "",
+        street: point.street || "",
+        findme: point.findme || "",
+        geolat: point.geolat || point.lat || point.latitude || "",
+        geolng: point.geolng || point.lng || point.lon || point.longitude || "",
+        variant: point.variant || "",
+        serviceString: point.serviceString || "",
+        paymentOptionsString: point.paymentOptionsString || "",
+        load: point.load || "",
+        country: point.country || ""
+      };
+    }
+
+    function normalizeList(json) {
+      if (Array.isArray(json)) {
+        return json.map(normalizePoint);
+      }
+
+      if (json && Array.isArray(json.data)) {
+        return json.data.map(normalizePoint);
+      }
+
+      if (json && Array.isArray(json.items)) {
+        return json.items.map(normalizePoint);
+      }
+
+      if (json && Array.isArray(json.features)) {
+        return json.features.map(function(feature) {
+          var props = feature.properties || {};
+          var coords = feature.geometry && feature.geometry.coordinates;
+
+          if (coords && coords.length >= 2) {
+            props.geolng = props.geolng || coords[0];
+            props.geolat = props.geolat || coords[1];
+          }
+
+          return normalizePoint(props);
+        });
+      }
+
+      return [];
+    }
+
+    function buildSelectedPointText(point) {
+      var destination = getDestination(point);
+      var operatorId = clean(point.operator_id);
+      var placeId = clean(point.place_id);
+      var name = clean(point.name);
+      var zip = clean(point.zip);
+      var city = clean(point.city);
+      var address = clean(point.address);
+      var street = clean(point.street);
+      var findme = shorten(point.findme, 160);
+      var variant = clean(point.variant);
+      var serviceString = clean(point.serviceString);
+      var paymentOptionsString = clean(point.paymentOptionsString);
+      var load = clean(point.load);
+      var country = clean(point.country);
 
       return "FOXPOST"
         + " | " + (name || "-")
@@ -167,61 +282,183 @@
         + (findme ? (" | FINDME:" + findme) : "");
     }
 
-    function showSelected(selectedPointText, rawData) {
+    function buildPopupHtml(point, key) {
+      var name = escapeHtml(point.name);
+      var cityLine = escapeHtml((point.zip ? point.zip : "") + (point.city ? (" " + point.city) : ""));
+      var address = escapeHtml(point.address || point.street || "");
+      var variant = escapeHtml(point.variant || "FOXPOST");
+      var service = escapeHtml(point.serviceString || "");
+      var payment = escapeHtml(point.paymentOptionsString || "");
+
+      return ''
+        + '<div class="popupTitle">' + (name || "FOXPOST átvevőpont") + '</div>'
+        + '<div class="popupLine">' + cityLine + '</div>'
+        + '<div class="popupLine">' + address + '</div>'
+        + '<div class="popupLine">' + variant + '</div>'
+        + (service ? '<div class="popupLine">' + service + '</div>' : '')
+        + (payment ? '<div class="popupLine">' + payment + '</div>' : '')
+        + '<button class="selectBtn" onclick="selectFoxpostPoint(\'' + key + '\')">Csomagautomata kiválasztása</button>';
+    }
+
+    function initMap() {
+      map = L.map("map").setView([47.1625, 19.5033], 7);
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: "&copy; OpenStreetMap"
+      }).addTo(map);
+    }
+
+    function clearMarkers() {
+      markers.forEach(function(marker) {
+        map.removeLayer(marker);
+      });
+
+      markers = [];
+    }
+
+    function renderPoints(points) {
+      clearMarkers();
+      pointsByKey = {};
+
+      var bounds = [];
+
+      points.forEach(function(point, index) {
+        var lat = parseFloat(point.geolat);
+        var lng = parseFloat(point.geolng);
+
+        if (!isFinite(lat) || !isFinite(lng)) {
+          return;
+        }
+
+        var key = pointKey(point, index);
+        pointsByKey[key] = point;
+
+        var marker = L.marker([lat, lng]).addTo(map);
+        marker.bindPopup(buildPopupHtml(point, key), {
+          maxWidth: 320
+        });
+
+        markers.push(marker);
+        bounds.push([lat, lng]);
+      });
+
+      document.getElementById("countText").textContent = points.length + " FOXPOST pont megjelenítve";
+
+      if (bounds.length) {
+        map.fitBounds(bounds, {
+          padding: [20, 20],
+          maxZoom: 13
+        });
+      }
+    }
+
+    function searchPoints() {
+      var q = clean(document.getElementById("searchInput").value).toLowerCase();
+
+      if (!q) {
+        renderPoints(allPoints);
+        return;
+      }
+
+      var filtered = allPoints.filter(function(point) {
+        var haystack = [
+          point.name,
+          point.zip,
+          point.city,
+          point.address,
+          point.street,
+          point.findme,
+          point.variant
+        ].join(" ").toLowerCase();
+
+        return haystack.indexOf(q) !== -1;
+      });
+
+      renderPoints(filtered);
+    }
+
+    function selectFoxpostPoint(key) {
+      var point = pointsByKey[key];
+
+      if (!point) {
+        console.error("FOXPOST pont nem található kulcs alapján:", key);
+        return;
+      }
+
+      var selectedPointText = buildSelectedPointText(point);
+
       var box = document.getElementById("selectedBox");
       var text = document.getElementById("selectedText");
-      var debug = document.getElementById("debugText");
+      var status = document.getElementById("statusText");
 
       if (box && text) {
         box.style.display = "block";
         text.textContent = selectedPointText;
       }
 
-      if (debug) {
-        debug.textContent = "FOXPOST adat megérkezett a wrapperbe. " + new Date().toLocaleTimeString();
+      if (status) {
+        status.textContent = "FOXPOST pont kiválasztva, adat küldése a Wix kosárnak...";
       }
 
-      console.log("FOXPOST kiválasztás feldolgozva:", selectedPointText, rawData);
-    }
+      console.log("FOXPOST kiválasztva, küldés Wix felé:", selectedPointText);
 
-    function sendToWix(selectedPointText) {
-      var payload = {
+      window.parent.postMessage({
         type: "MPL_SELECTED",
         data: selectedPointText
-      };
+      }, "*");
+    }
 
-      console.log("FOXPOST küldés Wix felé object:", payload);
+    window.selectFoxpostPoint = selectFoxpostPoint;
 
-      /*
-        1) MPL-hez azonos object forma.
-        2) Tartalék JSON string forma.
-        3) Tartalék top irány, ha a Wix belső iframe-réteg miatt parent nem elég.
-      */
-      window.parent.postMessage(payload, "*");
-      window.parent.postMessage(JSON.stringify(payload), "*");
+    async function loadFoxpostPoints() {
+      var status = document.getElementById("statusText");
 
-      if (window.top && window.top !== window.parent) {
-        window.top.postMessage(payload, "*");
-        window.top.postMessage(JSON.stringify(payload), "*");
+      try {
+        var response = await fetch(FOXPOST_JSON_URL, {
+          cache: "no-store"
+        });
+
+        if (!response.ok) {
+          throw new Error("FOXPOST lista lekérés hiba: " + response.status);
+        }
+
+        var json = await response.json();
+        var points = normalizeList(json)
+          .filter(function(point) {
+            return getDestination(point) && point.name && (point.geolat || point.geolng);
+          });
+
+        allPoints = points;
+
+        if (status) {
+          status.textContent = "FOXPOST lista betöltve.";
+        }
+
+        renderPoints(allPoints);
+      } catch (error) {
+        console.error("FOXPOST lista betöltési hiba:", error);
+
+        document.getElementById("countText").textContent = "FOXPOST lista betöltési hiba";
+
+        if (status) {
+          status.innerHTML = '<span class="error">Nem sikerült betölteni a FOXPOST pontokat: '
+            + escapeHtml(error.message || String(error))
+            + '</span>';
+        }
       }
     }
 
-    function receiveMessage(event) {
-      console.log("FOXPOST raw message:", event.origin, event.data);
+    document.getElementById("searchBtn").addEventListener("click", searchPoints);
 
-      var data = parseMaybeJson(event.data);
-
-      if (!looksLikeFoxpostPoint(data)) {
-        return;
+    document.getElementById("searchInput").addEventListener("keydown", function(event) {
+      if (event.key === "Enter") {
+        searchPoints();
       }
+    });
 
-      var selectedPointText = buildSelectedPointText(data);
-
-      showSelected(selectedPointText, data);
-      sendToWix(selectedPointText);
-    }
-
-    window.addEventListener("message", receiveMessage, false);
+    initMap();
+    loadFoxpostPoints();
   </script>
 </body>
 </html>
