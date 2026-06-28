@@ -5,191 +5,35 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>FOXPOST átvevőhely választó</title>
 
-  <link
-    rel="stylesheet"
-    href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
-  />
-
-  <link
-    rel="stylesheet"
-    href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"
-  />
-
-  <link
-    rel="stylesheet"
-    href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"
-  />
-
   <style>
-    :root {
-      --fox-red: #c90000;
-      --fox-red-dark: #990000;
-      --fox-bg: #ffffff;
-      --fox-text: #171717;
-      --fox-muted: #666666;
-      --fox-border: #e7e7e7;
-      --nutri-navy: #0c172b;
-      --nutri-green: #8CDA3F;
-      --soft: #f7f7f7;
-    }
-
     html, body {
       height: 100%;
       margin: 0;
       padding: 0;
       font-family: Arial, sans-serif;
-      background: transparent;
-      color: var(--fox-text);
+      background: #fff;
     }
 
     .wrap {
+      padding: 0;
       box-sizing: border-box;
-      width: 100%;
-      background: var(--fox-bg);
-      border-radius: 18px;
-      overflow: hidden;
-      border: 1px solid rgba(0,0,0,.06);
-      box-shadow: 0 12px 34px rgba(0,0,0,.10);
-    }
-
-    .header {
-      background: linear-gradient(135deg, #c90000 0%, #9f0000 100%);
-      color: #fff;
-      padding: 14px 18px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-    }
-
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-weight: 900;
-      letter-spacing: .2px;
-      font-size: 18px;
-    }
-
-    .foxMark {
-      width: 34px;
-      height: 34px;
-      border-radius: 12px;
       background: #fff;
-      color: var(--fox-red);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 900;
-      font-size: 17px;
-      box-shadow: 0 6px 18px rgba(0,0,0,.16);
     }
 
-    .headerText {
-      font-size: 12px;
-      opacity: .95;
-      text-align: right;
-      line-height: 1.35;
-    }
-
-    .topbar {
-      display: grid;
-      grid-template-columns: 1fr auto auto;
-      gap: 10px;
-      align-items: center;
-      padding: 14px;
-      background: #fff;
-      border-bottom: 1px solid var(--fox-border);
-    }
-
-    .field {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      background: var(--soft);
-      border: 1px solid var(--fox-border);
-      border-radius: 14px;
-      padding: 0 12px;
-      min-width: 0;
-    }
-
-    .field span {
-      font-size: 13px;
-      font-weight: 700;
-      white-space: nowrap;
-      color: #333;
-    }
-
-    input {
+    #foxpostFrame {
       width: 100%;
-      min-width: 130px;
-      padding: 12px 2px;
+      height: 760px;
       border: 0;
-      outline: none;
-      background: transparent;
-      font-size: 14px;
-      color: var(--fox-text);
-    }
-
-    input::placeholder {
-      color: #8a8a8a;
-    }
-
-    button {
-      border: 0;
-      cursor: pointer;
-      font-weight: 800;
-      transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
-    }
-
-    button:active {
-      transform: scale(.98);
-    }
-
-    .searchBtn {
-      background: var(--nutri-navy);
-      color: #fff;
-      border-radius: 14px;
-      padding: 13px 18px;
-      box-shadow: 0 8px 18px rgba(12,23,43,.18);
-    }
-
-    .searchBtn:hover {
-      background: #17243d;
-    }
-
-    .locBtn {
+      display: block;
       background: #fff;
-      color: var(--fox-red);
-      border: 1px solid var(--fox-border);
-      border-radius: 14px;
-      padding: 13px 14px;
-    }
-
-    .countPill {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      background: #fff5f5;
-      color: var(--fox-red);
-      border: 1px solid #ffd4d4;
-      border-radius: 999px;
-      padding: 9px 12px;
-      font-size: 12px;
-      font-weight: 800;
-      white-space: nowrap;
-    }
-
-    #map {
-      width: 100%;
-      height: 640px;
-      background: #eef1f3;
     }
 
     .selected {
+      margin: 10px;
       padding: 12px 14px;
-      border-top: 1px solid var(--fox-border);
-      background: #fff;
+      border: 1px solid #eee;
+      border-radius: 12px;
+      background: #fafafa;
       font-size: 13px;
       display: none;
       line-height: 1.45;
@@ -198,209 +42,46 @@
     .selected b {
       display: block;
       margin-bottom: 6px;
-      color: var(--fox-red);
+      color: #c60000;
+    }
+
+    .debug {
+      margin: 10px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: #0c172b;
+      color: #fff;
+      font-size: 12px;
+      line-height: 1.45;
+      word-break: break-word;
+    }
+
+    .debug strong {
+      color: #8CDA3F;
+    }
+
+    .debug .bad {
+      color: #ff9b9b;
     }
 
     .small {
       font-size: 12px;
-      opacity: .65;
+      opacity: .7;
       margin-top: 6px;
-    }
-
-    .status {
-      padding: 10px 14px 14px;
-      font-size: 12px;
-      color: var(--fox-muted);
-      background: #fff;
-    }
-
-    .error {
-      color: #b00020;
-      font-weight: 700;
-    }
-
-    .leaflet-control-zoom a {
-      border-radius: 10px !important;
-      margin-bottom: 4px;
-      border: 1px solid rgba(0,0,0,.08) !important;
-      color: var(--fox-red) !important;
-      font-weight: 900;
-    }
-
-    .leaflet-popup-content-wrapper {
-      border-radius: 18px;
-      box-shadow: 0 12px 30px rgba(0,0,0,.18);
-      border: 1px solid rgba(0,0,0,.06);
-      overflow: hidden;
-    }
-
-    .leaflet-popup-content {
-      margin: 0;
-      width: 310px !important;
-      font-size: 13px;
-    }
-
-    .popupCard {
-      background: #fff;
-    }
-
-    .popupHead {
-      background: linear-gradient(135deg, #c90000 0%, #a40000 100%);
-      color: #fff;
-      padding: 12px 14px;
-      font-weight: 900;
-      font-size: 15px;
-      line-height: 1.25;
-    }
-
-    .popupBody {
-      padding: 12px 14px 14px;
-    }
-
-    .popupLine {
-      margin: 6px 0;
-      color: #333;
-      line-height: 1.35;
-    }
-
-    .popupMeta {
-      margin-top: 10px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-    }
-
-    .tag {
-      background: #f4f4f4;
-      border: 1px solid #e8e8e8;
-      border-radius: 999px;
-      padding: 5px 8px;
-      font-size: 11px;
-      font-weight: 700;
-      color: #444;
-    }
-
-    .selectBtn {
-      width: 100%;
-      margin-top: 12px;
-      background: var(--fox-red);
-      color: #fff;
-      border-radius: 13px;
-      padding: 12px 14px;
-      box-shadow: 0 8px 18px rgba(201,0,0,.20);
-      font-size: 14px;
-    }
-
-    .selectBtn:hover {
-      background: var(--fox-red-dark);
-    }
-
-    .foxMarker {
-      width: 34px;
-      height: 34px;
-      border-radius: 50% 50% 50% 8px;
-      background: var(--fox-red);
-      transform: rotate(-45deg);
-      border: 3px solid #fff;
-      box-shadow: 0 7px 18px rgba(0,0,0,.25);
-      position: relative;
-    }
-
-    .foxMarker::after {
-      content: "F";
-      position: absolute;
-      inset: 0;
-      transform: rotate(45deg);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #fff;
-      font-size: 15px;
-      font-weight: 900;
-      font-family: Arial, sans-serif;
-    }
-
-    .foxMarker.zbox {
-      background: #ff7a00;
-    }
-
-    .foxMarker.zpoint,
-    .foxMarker.packeta {
-      background: #19a35b;
-    }
-
-    .foxMarker.unknown {
-      background: #777;
-    }
-
-    .marker-cluster-small,
-    .marker-cluster-medium,
-    .marker-cluster-large {
-      background-color: rgba(201, 0, 0, .18);
-    }
-
-    .marker-cluster-small div,
-    .marker-cluster-medium div,
-    .marker-cluster-large div {
-      background: linear-gradient(135deg, #c90000 0%, #970000 100%);
-      color: #fff;
-      font-weight: 900;
-      border: 3px solid #fff;
-      box-shadow: 0 8px 18px rgba(0,0,0,.25);
-    }
-
-    @media (max-width: 720px) {
-      .header {
-        align-items: flex-start;
-        flex-direction: column;
-      }
-
-      .headerText {
-        text-align: left;
-      }
-
-      .topbar {
-        grid-template-columns: 1fr;
-      }
-
-      .countPill {
-        justify-content: flex-start;
-      }
-
-      #map {
-        height: 560px;
-      }
-
-      .leaflet-popup-content {
-        width: 280px !important;
-      }
     }
   </style>
 </head>
 
 <body>
   <div class="wrap">
-    <div class="header">
-      <div class="brand">
-        <div class="foxMark">F</div>
-        <div>FOXPOST átvevőhely választó</div>
-      </div>
-      <div class="headerText">
-        Válassz csomagautomatát vagy átvevőpontot<br>
-        a rendelésedhez
-      </div>
-    </div>
-
-    <div class="topbar">
-      <div class="field">
-        <span>Keresés</span>
-        <input id="searchInput" type="text" placeholder="pl. Budapest, 1088, Múzeum" />
-      </div>
-      <button class="searchBtn" id="searchBtn">Keresés</button>
-      <div class="countPill" id="countText">FOXPOST pontok betöltése...</div>
-    </div>
-
-    <div id="map"></div>
+    <iframe
+      id="foxpostFrame"
+      src="https://cdn.foxpost.hu/apt-finder/v1/app/"
+      width="100%"
+      height="760"
+      frameborder="0"
+      loading="lazy">
+    </iframe>
 
     <div class="selected" id="selectedBox">
       <b>Kiválasztva:</b>
@@ -408,21 +89,44 @@
       <div class="small">A választás automatikusan mentésre kerül a kosár megjegyzésébe.</div>
     </div>
 
-    <div class="status" id="statusText"></div>
+    <div class="debug" id="debugBox">
+      <strong>Debug:</strong> FOXPOST iframe betöltve. Válassz egy pontot, majd kattints a FOXPOST “Csomagautomata kiválasztása / Kiválasztom” gombjára.
+    </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-
   <script>
-    console.log("FOXPOST saját skines Leaflet widget betöltött - MPL kompatibilis");
+    console.log("FOXPOST official iframe debug wrapper loaded");
 
-    var FOXPOST_JSON_URL = "https://cdn.foxpost.hu/foxplus.json";
+    var rawMessageCount = 0;
+    var validPointCount = 0;
 
-    var map;
-    var clusterGroup;
-    var allPoints = [];
-    var pointsByKey = {};
+    function setDebug(html) {
+      var debugBox = document.getElementById("debugBox");
+
+      if (debugBox) {
+        debugBox.innerHTML = html;
+      }
+    }
+
+    function parseMaybeJson(value) {
+      if (!value) {
+        return null;
+      }
+
+      if (typeof value === "object") {
+        return value;
+      }
+
+      if (typeof value === "string") {
+        try {
+          return JSON.parse(value);
+        } catch (error) {
+          return null;
+        }
+      }
+
+      return null;
+    }
 
     function clean(value) {
       return String(value || "")
@@ -433,123 +137,48 @@
 
     function shorten(value, maxLength) {
       var text = clean(value);
-      return text.length <= maxLength ? text : text.substring(0, maxLength - 3) + "...";
-    }
 
-    function escapeHtml(value) {
-      return clean(value)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-    }
-
-    function getDestination(point) {
-      return clean(point.operator_id || point.operatorId || point.place_id || point.placeId);
-    }
-
-    function pointKey(index) {
-      return "p_" + index;
-    }
-
-    function normalizePoint(raw) {
-      var point = raw || {};
-
-      return {
-        place_id: point.place_id || point.placeId || "",
-        operator_id: point.operator_id || point.operatorId || "",
-        name: point.name || "",
-        address: point.address || "",
-        zip: point.zip || "",
-        city: point.city || "",
-        street: point.street || "",
-        findme: point.findme || "",
-        geolat: point.geolat || point.lat || point.latitude || "",
-        geolng: point.geolng || point.lng || point.lon || point.longitude || "",
-        variant: point.variant || "",
-        serviceString: point.serviceString || "",
-        paymentOptionsString: point.paymentOptionsString || "",
-        load: point.load || "",
-        country: point.country || ""
-      };
-    }
-
-    function normalizeList(json) {
-      if (Array.isArray(json)) {
-        return json.map(normalizePoint);
+      if (text.length <= maxLength) {
+        return text;
       }
 
-      if (json && Array.isArray(json.data)) {
-        return json.data.map(normalizePoint);
-      }
-
-      if (json && Array.isArray(json.items)) {
-        return json.items.map(normalizePoint);
-      }
-
-      if (json && Array.isArray(json.features)) {
-        return json.features.map(function(feature) {
-          var props = feature.properties || {};
-          var coords = feature.geometry && feature.geometry.coordinates;
-
-          if (coords && coords.length >= 2) {
-            props.geolng = props.geolng || coords[0];
-            props.geolat = props.geolat || coords[1];
-          }
-
-          return normalizePoint(props);
-        });
-      }
-
-      return [];
+      return text.substring(0, maxLength - 3) + "...";
     }
 
-    function markerClass(point) {
-      var variant = clean(point.variant).toLowerCase();
-
-      if (variant.indexOf("z-box") !== -1 || variant.indexOf("zbox") !== -1) {
-        return "zbox";
+    function looksLikeFoxpostPoint(value) {
+      if (!value || typeof value !== "object") {
+        return false;
       }
 
-      if (variant.indexOf("z-point") !== -1 || variant.indexOf("zpont") !== -1 || variant.indexOf("packeta") !== -1) {
-        return "zpoint";
-      }
+      var hasName = Boolean(value.name);
+      var hasAddress = Boolean(value.address || value.city || value.street);
+      var hasId = Boolean(
+        value.operator_id ||
+        value.operatorId ||
+        value.place_id ||
+        value.placeId ||
+        value.destinationId
+      );
 
-      if (variant.indexOf("foxpost") !== -1 || !variant) {
-        return "";
-      }
-
-      return "unknown";
+      return hasName && hasAddress && hasId;
     }
 
-    function markerIcon(point) {
-      var cls = markerClass(point);
+    function buildSelectedPointText(data) {
+      var operatorId = clean(data.operator_id || data.operatorId);
+      var placeId = clean(data.place_id || data.placeId);
+      var destination = clean(operatorId || placeId || data.destinationId);
 
-      return L.divIcon({
-        className: "",
-        html: '<div class="foxMarker ' + cls + '"></div>',
-        iconSize: [34, 34],
-        iconAnchor: [17, 34],
-        popupAnchor: [0, -30]
-      });
-    }
-
-    function buildSelectedPointText(point) {
-      var destination = getDestination(point);
-      var operatorId = clean(point.operator_id);
-      var placeId = clean(point.place_id);
-      var name = clean(point.name);
-      var zip = clean(point.zip);
-      var city = clean(point.city);
-      var address = clean(point.address);
-      var street = clean(point.street);
-      var findme = shorten(point.findme, 160);
-      var variant = clean(point.variant);
-      var serviceString = clean(point.serviceString);
-      var paymentOptionsString = clean(point.paymentOptionsString);
-      var load = clean(point.load);
-      var country = clean(point.country);
+      var name = clean(data.name);
+      var zip = clean(data.zip);
+      var city = clean(data.city);
+      var address = clean(data.address);
+      var street = clean(data.street);
+      var findme = shorten(data.findme, 160);
+      var variant = clean(data.variant);
+      var serviceString = clean(data.serviceString);
+      var paymentOptionsString = clean(data.paymentOptionsString);
+      var load = clean(data.load);
+      var country = clean(data.country);
 
       return "FOXPOST"
         + " | " + (name || "-")
@@ -566,201 +195,80 @@
         + (findme ? (" | FINDME:" + findme) : "");
     }
 
-    function buildPopupHtml(point, key) {
-      var name = escapeHtml(point.name);
-      var cityLine = escapeHtml((point.zip ? point.zip : "") + (point.city ? (" " + point.city) : ""));
-      var address = escapeHtml(point.address || point.street || "");
-      var variant = escapeHtml(point.variant || "FOXPOST");
-      var service = escapeHtml(point.serviceString || "");
-      var payment = escapeHtml(point.paymentOptionsString || "");
-      var load = escapeHtml(point.load || "");
-
-      return ''
-        + '<div class="popupCard">'
-        + '<div class="popupHead">' + (name || "FOXPOST átvevőpont") + '</div>'
-        + '<div class="popupBody">'
-        + '<div class="popupLine"><b>Cím:</b> ' + cityLine + ', ' + address + '</div>'
-        + '<div class="popupMeta">'
-        + '<span class="tag">' + variant + '</span>'
-        + (service ? '<span class="tag">' + service + '</span>' : '')
-        + (payment ? '<span class="tag">' + payment + '</span>' : '')
-        + (load ? '<span class="tag">' + load + '</span>' : '')
-        + '</div>'
-        + '<button class="selectBtn" onclick="selectFoxpostPoint(\'' + key + '\')">Csomagautomata kiválasztása</button>'
-        + '</div>'
-        + '</div>';
-    }
-
-    function initMap() {
-      map = L.map("map", {
-        zoomControl: true,
-        scrollWheelZoom: true
-      }).setView([47.1625, 19.5033], 7);
-
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 19,
-        attribution: "&copy; OpenStreetMap"
-      }).addTo(map);
-
-      clusterGroup = L.markerClusterGroup({
-        showCoverageOnHover: false,
-        spiderfyOnMaxZoom: true,
-        disableClusteringAtZoom: 14,
-        maxClusterRadius: 48
-      });
-
-      map.addLayer(clusterGroup);
-    }
-
-    function clearMarkers() {
-      clusterGroup.clearLayers();
-    }
-
-    function renderPoints(points) {
-      clearMarkers();
-      pointsByKey = {};
-
-      var bounds = [];
-
-      points.forEach(function(point, index) {
-        var lat = parseFloat(point.geolat);
-        var lng = parseFloat(point.geolng);
-
-        if (!isFinite(lat) || !isFinite(lng)) {
-          return;
-        }
-
-        var key = pointKey(index);
-        pointsByKey[key] = point;
-
-        var marker = L.marker([lat, lng], {
-          icon: markerIcon(point)
-        });
-
-        marker.bindPopup(buildPopupHtml(point, key), {
-          maxWidth: 340
-        });
-
-        clusterGroup.addLayer(marker);
-        bounds.push([lat, lng]);
-      });
-
-      document.getElementById("countText").textContent = points.length + " átvevőpont";
-
-      if (bounds.length) {
-        map.fitBounds(bounds, {
-          padding: [24, 24],
-          maxZoom: 12
-        });
-      }
-    }
-
-    function searchPoints() {
-      var q = clean(document.getElementById("searchInput").value).toLowerCase();
-
-      if (!q) {
-        renderPoints(allPoints);
-        return;
-      }
-
-      var filtered = allPoints.filter(function(point) {
-        var haystack = [
-          point.name,
-          point.zip,
-          point.city,
-          point.address,
-          point.street,
-          point.findme,
-          point.variant
-        ].join(" ").toLowerCase();
-
-        return haystack.indexOf(q) !== -1;
-      });
-
-      renderPoints(filtered);
-    }
-
-    function selectFoxpostPoint(key) {
-      var point = pointsByKey[key];
-
-      if (!point) {
-        console.error("FOXPOST pont nem található kulcs alapján:", key);
-        return;
-      }
-
-      var selectedPointText = buildSelectedPointText(point);
-
+    function showSelected(selectedPointText) {
       var box = document.getElementById("selectedBox");
       var text = document.getElementById("selectedText");
-      var status = document.getElementById("statusText");
 
       if (box && text) {
         box.style.display = "block";
         text.textContent = selectedPointText;
       }
+    }
 
-      if (status) {
-        status.textContent = "FOXPOST pont kiválasztva, adat küldése a Wix kosárnak...";
-      }
-
-      console.log("FOXPOST kiválasztva, küldés Wix felé:", selectedPointText);
-
-      window.parent.postMessage({
+    function sendToWix(selectedPointText) {
+      var payload = {
         type: "MPL_SELECTED",
         data: selectedPointText
-      }, "*");
+      };
+
+      console.log("FOXPOST wrapper sending to Wix:", payload);
+
+      /*
+        1) Object formátum: ezt használta a működő MPL.
+        2) JSON string tartalék: ha a Wix HTML komponens stringként adja tovább.
+      */
+      window.parent.postMessage(payload, "*");
+      window.parent.postMessage(JSON.stringify(payload), "*");
     }
 
-    window.selectFoxpostPoint = selectFoxpostPoint;
+    function receiveMessage(event) {
+      rawMessageCount++;
 
-    async function loadFoxpostPoints() {
-      var status = document.getElementById("statusText");
+      console.log("FOXPOST raw message:", {
+        origin: event.origin,
+        data: event.data
+      });
 
-      try {
-        var response = await fetch(FOXPOST_JSON_URL, {
-          cache: "no-store"
-        });
+      var data = parseMaybeJson(event.data);
 
-        if (!response.ok) {
-          throw new Error("FOXPOST lista lekérés hiba: " + response.status);
-        }
-
-        var json = await response.json();
-        var points = normalizeList(json)
-          .filter(function(point) {
-            return getDestination(point) && point.name && point.geolat && point.geolng;
-          });
-
-        allPoints = points;
-
-        if (status) {
-          status.textContent = "FOXPOST átvevőpont lista betöltve.";
-        }
-
-        renderPoints(allPoints);
-      } catch (error) {
-        console.error("FOXPOST lista betöltési hiba:", error);
-
-        document.getElementById("countText").textContent = "Betöltési hiba";
-
-        if (status) {
-          status.innerHTML = '<span class="error">Nem sikerült betölteni a FOXPOST pontokat: '
-            + escapeHtml(error.message || String(error))
-            + '</span>';
-        }
+      if (!data) {
+        setDebug(
+          "<strong>Debug:</strong> Üzenet érkezett, de nem feldolgozható JSON.<br>" +
+          "Origin: " + clean(event.origin) + "<br>" +
+          "Raw message count: " + rawMessageCount
+        );
+        return;
       }
+
+      if (!looksLikeFoxpostPoint(data)) {
+        setDebug(
+          "<strong>Debug:</strong> Üzenet érkezett, de nem FOXPOST pont adat.<br>" +
+          "Origin: " + clean(event.origin) + "<br>" +
+          "Raw message count: " + rawMessageCount + "<br>" +
+          "Data keys: " + Object.keys(data).join(", ")
+        );
+        return;
+      }
+
+      validPointCount++;
+
+      var selectedPointText = buildSelectedPointText(data);
+
+      showSelected(selectedPointText);
+      sendToWix(selectedPointText);
+
+      setDebug(
+        "<strong>Debug:</strong> <strong>FOXPOST pont adat megérkezett a wrapperbe és elküldve Wix felé.</strong><br>" +
+        "Valid point count: " + validPointCount + "<br>" +
+        "Origin: " + clean(event.origin) + "<br>" +
+        "Név: " + clean(data.name) + "<br>" +
+        "Cím: " + clean(data.address || data.street) + "<br>" +
+        "Operator: " + clean(data.operator_id || data.operatorId) + "<br>" +
+        "Place: " + clean(data.place_id || data.placeId)
+      );
     }
 
-    document.getElementById("searchBtn").addEventListener("click", searchPoints);
-
-    document.getElementById("searchInput").addEventListener("keydown", function(event) {
-      if (event.key === "Enter") {
-        searchPoints();
-      }
-    });
-
-    initMap();
-    loadFoxpostPoints();
+    window.addEventListener("message", receiveMessage, false);
   </script>
 </body>
 </html>
