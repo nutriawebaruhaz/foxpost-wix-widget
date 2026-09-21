@@ -112,3 +112,70 @@ export function cartValue(lineItems: Array<{ totalPrice?: unknown; price?: unkno
 export function foxpostShippingPrice(lineItems: Array<{ totalPrice?: unknown; price?: unknown; quantity?: unknown }> | undefined): number {
   return cartValue(lineItems) >= FREE_SHIPPING_FROM_HUF ? 0 : STANDARD_PRICE_HUF;
 }
+
+
+export type ShippingLineItem = {
+  totalPrice?: unknown;
+  price?: unknown;
+  quantity?: unknown;
+};
+
+export type ShippingRateRequestLike = {
+  lineItems?: ShippingLineItem[];
+  shippingDestination?: DeliveryAddress;
+};
+
+export function shouldOfferFoxpost(country: string | undefined, currency: string | undefined): boolean {
+  const normalizedCountry = String(country ?? '').toUpperCase();
+  const normalizedCurrency = String(currency ?? 'HUF').toUpperCase();
+
+  return (!normalizedCountry || normalizedCountry === 'HU') && normalizedCurrency === 'HUF';
+}
+
+export function buildFoxpostShippingRate(
+  request: ShippingRateRequestLike,
+  currency: string | undefined
+) {
+  const destination = request.shippingDestination;
+  const normalizedCurrency = String(currency ?? 'HUF').toUpperCase();
+
+  if (!shouldOfferFoxpost(destination?.country, normalizedCurrency)) {
+    return null;
+  }
+
+  const selectedPoint = isFoxpostDeliveryAddress(destination);
+  const price = foxpostShippingPrice(request.lineItems);
+
+  return {
+    code: FOXPOST_CODE,
+    title: 'FOXPOST automata / átvételi pont',
+    logistics: {
+      deliveryTime: '1–4 munkanap',
+      instructions: selectedPoint
+        ? 'A kiválasztott FOXPOST átvételi pont a rendelés szállítási adataiban szerepel.'
+        : 'A folytatáshoz válassz FOXPOST automatát vagy átvételi pontot.',
+      ...(selectedPoint
+        ? {
+            pickupDetails: {
+              address: destination,
+              pickupMethod: 'PICKUP_POINT' as const,
+            },
+          }
+        : {}),
+    },
+    cost: {
+      price: String(price),
+      currency: normalizedCurrency,
+    },
+  };
+}
+
+export function shouldBlockFoxpostCheckout(
+  selectedDeliveryCode: string | undefined,
+  shippingAddress: DeliveryAddress | undefined
+): boolean {
+  return (
+    selectedDeliveryCode === FOXPOST_CODE &&
+    !isFoxpostDeliveryAddress(shippingAddress)
+  );
+}
