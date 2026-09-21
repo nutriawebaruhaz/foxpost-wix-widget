@@ -99,7 +99,7 @@ export function foxpostPointIdFromAddressLine2(addressLine2: string | null | und
   return match?.[1] ?? null;
 }
 
-export function isFoxpostDeliveryAddress(address: DeliveryAddress | undefined): boolean {
+export function isFoxpostDeliveryAddress(address: DeliveryAddress | null | undefined): boolean {
   return Boolean(foxpostPointIdFromAddressLine2(address?.addressLine2));
 }
 
@@ -132,16 +132,49 @@ export type ShippingRateRequestLike = {
   shippingDestination?: DeliveryAddress;
 };
 
-export function shouldOfferFoxpost(country: string | undefined, currency: string | undefined): boolean {
+export function shouldOfferFoxpost(
+  country: string | null | undefined,
+  currency: string | null | undefined
+): boolean {
   const normalizedCountry = String(country ?? '').toUpperCase();
   const normalizedCurrency = String(currency ?? 'HUF').toUpperCase();
 
   return (!normalizedCountry || normalizedCountry === 'HU') && normalizedCurrency === 'HUF';
 }
 
+export function sanitizeDeliveryAddress(address: DeliveryAddress | null | undefined) {
+  if (!address) {
+    return {};
+  }
+
+  const streetName = address.streetAddress?.name ?? undefined;
+  const streetNumber = address.streetAddress?.number ?? undefined;
+  const city = address.city ?? undefined;
+  const subdivision = address.subdivision ?? undefined;
+  const country = address.country ?? undefined;
+  const postalCode = address.postalCode ?? undefined;
+  const addressLine2 = address.addressLine2 ?? undefined;
+
+  return {
+    ...(streetName || streetNumber
+      ? {
+          streetAddress: {
+            ...(streetName ? { name: streetName } : {}),
+            ...(streetNumber ? { number: streetNumber } : {}),
+          },
+        }
+      : {}),
+    ...(city ? { city } : {}),
+    ...(subdivision ? { subdivision } : {}),
+    ...(country ? { country } : {}),
+    ...(postalCode ? { postalCode } : {}),
+    ...(addressLine2 ? { addressLine2 } : {}),
+  };
+}
+
 export function buildFoxpostShippingRate(
   request: ShippingRateRequestLike,
-  currency: string | undefined
+  currency: string | null | undefined
 ) {
   const destination = request.shippingDestination;
   const normalizedCurrency = String(currency ?? 'HUF').toUpperCase();
@@ -160,7 +193,7 @@ export function buildFoxpostShippingRate(
         instructions:
           'A kiválasztott FOXPOST átvételi pont a rendelés szállítási adataiban szerepel.',
         pickupDetails: {
-          address: destination,
+          address: sanitizeDeliveryAddress(destination),
           pickupMethod: 'PICKUP_POINT' as const,
         },
       }
@@ -183,7 +216,7 @@ export function buildFoxpostShippingRate(
 
 export function shouldBlockFoxpostCheckout(
   selectedDeliveryCode: string | undefined,
-  shippingAddress: DeliveryAddress | undefined
+  shippingAddress: DeliveryAddress | null | undefined
 ): boolean {
   return (
     selectedDeliveryCode === FOXPOST_CODE &&
