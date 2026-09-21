@@ -47,6 +47,7 @@ jobs:
           react@18.3.1
           react-dom@18.3.1
           @wix/ecom@latest
+          @wix/auto_sdk_ecom_shipping-rates@latest
           @wix/astro@latest
           @wix/dashboard@latest
           @wix/design-system@latest
