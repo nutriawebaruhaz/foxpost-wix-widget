@@ -52,6 +52,11 @@ jobs:
           @wix/design-system@latest
           @wix/editor@latest
 
+      - name: Inspect currentCartV2 SDK signatures
+        run: |
+          grep -R "updateCurrentCart" node_modules/@wix/ecom/dist -n | head -40 || true
+          grep -R "updateCurrentCart" node_modules/@wix/ecom -n --include='*.d.ts' | head -40 || true
+
       - name: Type-check FOXPOST Wix sources
         run: >
           npx tsc --noEmit
