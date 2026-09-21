@@ -120,6 +120,10 @@ test('FOXPOST becomes free exactly at 30,000 HUF', () => {
   assert.equal(foxpostShippingPrice([{ totalPrice: '30000' }]), 0);
 });
 
+test('FOXPOST stays free above 30,000 HUF', () => {
+  assert.equal(foxpostShippingPrice([{ totalPrice: '45000' }]), 0);
+});
+
 test('FOXPOST option is offered for Hungary/HUF and pre-address state', () => {
   assert.equal(shouldOfferFoxpost('HU', 'HUF'), true);
   assert.equal(shouldOfferFoxpost(undefined, 'HUF'), true);
