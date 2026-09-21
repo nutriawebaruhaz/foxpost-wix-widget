@@ -12,6 +12,7 @@ import {
   shouldBlockFoxpostCheckout,
   shouldOfferFoxpost,
   splitStreet,
+  sanitizeDeliveryAddress,
 } from '../src/lib/foxpost-core';
 
 const foxpostPoint = {
@@ -163,6 +164,26 @@ test('Shipping rate after point selection becomes a PICKUP_POINT', () => {
   assert.equal(rate?.cost.price, '0');
   assert.equal(rate?.logistics.pickupDetails?.pickupMethod, 'PICKUP_POINT');
   assert.deepEqual(rate?.logistics.pickupDetails?.address, destination);
+});
+
+test('Wix pickup address output removes null fields', () => {
+  assert.deepEqual(
+    sanitizeDeliveryAddress({
+      streetAddress: { name: 'Példa utca', number: null },
+      city: 'Budapest',
+      subdivision: null,
+      country: 'HU',
+      postalCode: '1117',
+      addressLine2: 'Packeta Z-Pont · FOXPOST 987654',
+    }),
+    {
+      streetAddress: { name: 'Példa utca' },
+      city: 'Budapest',
+      country: 'HU',
+      postalCode: '1117',
+      addressLine2: 'Packeta Z-Pont · FOXPOST 987654',
+    }
+  );
 });
 
 test('FOXPOST checkout is blocked until a pickup address is present', () => {
