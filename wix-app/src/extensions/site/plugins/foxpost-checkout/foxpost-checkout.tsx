@@ -9,6 +9,7 @@ import {
   foxpostPointIdFromAddressLine2,
   isFoxpostDeliveryAddress,
   isSelectableFoxpostPoint,
+  sanitizeDeliveryAddress,
 } from '../../../../lib/foxpost-core';
 
 type SlotBrand = {
@@ -236,9 +237,11 @@ class NutriAFoxpostCheckout extends HTMLElement {
         return;
       }
 
-      const restoredAddress = this.previousDeliveryAddress ?? {
-        country: currentAddress?.country || 'HU',
-      };
+      const restoredAddress = sanitizeDeliveryAddress(
+        this.previousDeliveryAddress ?? {
+          country: currentAddress?.country || 'HU',
+        }
+      );
 
       await currentCartV2.updateCurrentCart({
         deliveryInfo: {
