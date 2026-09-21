@@ -1,7 +1,9 @@
 export const FOXPOST_CODE = 'foxpost_pickup';
-export const FOXPOST_CARRIER_APP_ID = '48809dd6-3504-4e8d-9021-c2b4003571a9';
+export const FOXPOST_CARRIER_APP_ID = 'ae3fcc51-5b48-49ea-ba28-ab54d642679b';
 export const STANDARD_PRICE_HUF = 1990;
 export const FREE_SHIPPING_FROM_HUF = 30000;
+
+const FOXPOST_MARKER_PREFIX = 'FP2|';
 
 export type FoxpostPoint = {
   place_id?: number | string;
@@ -73,10 +75,79 @@ export function splitStreet(street: string): { name: string; number?: string } {
   };
 }
 
-export function buildFoxpostDeliveryAddress(point: FoxpostPoint): DeliveryAddress {
+function markerPart(value: unknown): string {
+  return encodeURIComponent(String(value ?? '').trim());
+}
+
+function decodeMarkerPart(value: string | undefined): string {
+  if (!value) {
+    return '';
+  }
+
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+export function buildFoxpostPointMarker(point: FoxpostPoint): string {
   const pointId = foxpostPointId(point);
-  if (!pointId) {
-    throw new Error('FOXPOST pickup point has no operator_id or place_id.');
+  if (!pointId || !isSelectableFoxpostPoint(point)) {
+    throw new Error('FOXPOST pickup point is incomplete.');
+  }
+
+  return [
+    FOXPOST_MARKER_PREFIX.slice(0, -1),
+    markerPart(pointId),
+    markerPart(String(point.country ?? 'HU').toUpperCase()),
+    markerPart(point.zip),
+    markerPart(point.city),
+    markerPart(point.street),
+    markerPart(point.name),
+  ].join('|');
+}
+
+export function foxpostPointFromAddressLine2(
+  addressLine2: string | null | undefined
+): FoxpostPoint | null {
+  const value = String(addressLine2 ?? '').trim();
+
+  if (value.startsWith(FOXPOST_MARKER_PREFIX)) {
+    const [, pointId, country, zip, city, street, name] = value.split('|');
+    const decodedPointId = decodeMarkerPart(pointId);
+
+    if (!decodedPointId) {
+      return null;
+    }
+
+    return {
+      operator_id: decodedPointId,
+      country: decodeMarkerPart(country) || 'HU',
+      zip: decodeMarkerPart(zip),
+      city: decodeMarkerPart(city),
+      street: decodeMarkerPart(street),
+      name: decodeMarkerPart(name),
+    };
+  }
+
+  const legacyMatch = value.match(/FOXPOST\s+([A-Z0-9-]+)/i);
+  if (!legacyMatch?.[1]) {
+    return null;
+  }
+
+  return {
+    operator_id: legacyMatch[1].toUpperCase(),
+    name: value
+      .replace(/\s*[·|-]\s*FOXPOST\s+[A-Z0-9-]+.*$/i, '')
+      .trim() || 'FOXPOST átvételi pont',
+  };
+}
+
+export function buildFoxpostPickupAddress(point: FoxpostPoint): DeliveryAddress {
+  const pointId = foxpostPointId(point);
+  if (!pointId || !isSelectableFoxpostPoint(point)) {
+    throw new Error('FOXPOST pickup point is incomplete.');
   }
 
   const street = splitStreet(String(point.street ?? ''));
@@ -90,20 +161,41 @@ export function buildFoxpostDeliveryAddress(point: FoxpostPoint): DeliveryAddres
     city: String(point.city ?? '').trim(),
     country: String(point.country ?? 'HU').toUpperCase(),
     postalCode: String(point.zip ?? '').trim(),
-    addressLine2: `${pointName} · FOXPOST ${pointId}`,
+    addressLine2: pointName,
   };
 }
 
-export function foxpostPointIdFromAddressLine2(addressLine2: string | null | undefined): string | null {
-  const match = String(addressLine2 ?? '').match(/FOXPOST\s+([A-Z0-9-]+)/i);
-  return match?.[1] ?? null;
+export function buildFoxpostCartAddress(
+  currentAddress: DeliveryAddress | null | undefined,
+  point: FoxpostPoint
+): DeliveryAddress {
+  return {
+    ...sanitizeDeliveryAddress(currentAddress),
+    country: String(currentAddress?.country ?? 'HU').toUpperCase(),
+    addressLine2: buildFoxpostPointMarker(point),
+  };
 }
 
-export function isFoxpostDeliveryAddress(address: DeliveryAddress | null | undefined): boolean {
+export function buildFoxpostDeliveryAddress(point: FoxpostPoint): DeliveryAddress {
+  return buildFoxpostPickupAddress(point);
+}
+
+export function foxpostPointIdFromAddressLine2(
+  addressLine2: string | null | undefined
+): string | null {
+  const point = foxpostPointFromAddressLine2(addressLine2);
+  return point ? foxpostPointId(point) : null;
+}
+
+export function isFoxpostDeliveryAddress(
+  address: DeliveryAddress | null | undefined
+): boolean {
   return Boolean(foxpostPointIdFromAddressLine2(address?.addressLine2));
 }
 
-export function cartValue(lineItems: Array<{ totalPrice?: unknown; price?: unknown; quantity?: unknown }> | undefined): number {
+export function cartValue(
+  lineItems: Array<{ totalPrice?: unknown; price?: unknown; quantity?: unknown }> | undefined
+): number {
   return (lineItems ?? []).reduce((sum, item) => {
     const total = Number(item.totalPrice);
     if (item.totalPrice !== undefined && item.totalPrice !== null && Number.isFinite(total)) {
@@ -116,10 +208,11 @@ export function cartValue(lineItems: Array<{ totalPrice?: unknown; price?: unkno
   }, 0);
 }
 
-export function foxpostShippingPrice(lineItems: Array<{ totalPrice?: unknown; price?: unknown; quantity?: unknown }> | undefined): number {
+export function foxpostShippingPrice(
+  lineItems: Array<{ totalPrice?: unknown; price?: unknown; quantity?: unknown }> | undefined
+): number {
   return cartValue(lineItems) >= FREE_SHIPPING_FROM_HUF ? 0 : STANDARD_PRICE_HUF;
 }
-
 
 export type ShippingLineItem = {
   totalPrice?: unknown;
@@ -183,20 +276,27 @@ export function buildFoxpostShippingRate(
     return null;
   }
 
-  const selectedPoint =
-    destination !== undefined && isFoxpostDeliveryAddress(destination);
+  const storedPoint = foxpostPointFromAddressLine2(destination?.addressLine2);
+  const selectedPoint = Boolean(storedPoint && foxpostPointId(storedPoint));
   const price = foxpostShippingPrice(request.lineItems);
+
+  let pickupAddress: ReturnType<typeof sanitizeDeliveryAddress> | null = null;
+
+  if (storedPoint && isSelectableFoxpostPoint(storedPoint)) {
+    pickupAddress = sanitizeDeliveryAddress(buildFoxpostPickupAddress(storedPoint));
+  } else if (selectedPoint && destination) {
+    // Backwards compatibility for carts created with the legacy marker format.
+    pickupAddress = sanitizeDeliveryAddress(destination);
+  }
 
   return {
     code: FOXPOST_CODE,
     title: 'FOXPOST automata / átvételi pont',
     deliveryTime: '1–4 munkanap',
     instructions: selectedPoint
-      ? 'A kiválasztott FOXPOST átvételi pont a rendelés szállítási adataiban szerepel.'
+      ? 'A csomag a kiválasztott FOXPOST automatába / átvételi pontra érkezik.'
       : 'A folytatáshoz válassz FOXPOST automatát vagy átvételi pontot.',
-    pickupAddress: selectedPoint
-      ? sanitizeDeliveryAddress(destination)
-      : null,
+    pickupAddress,
     price: String(price),
     currency: normalizedCurrency,
   };
