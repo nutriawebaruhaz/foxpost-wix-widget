@@ -1,12 +1,8 @@
 import { validations } from '@wix/ecom/service-plugins';
-
-const FOXPOST_CODE = 'foxpost_pickup';
-const FOXPOST_POINT_MARKER = /(?:^|[·|\s])FOXPOST\s+[A-Z0-9-]+/i;
-
-function hasFoxpostPoint(validationInfo: any): boolean {
-  const address = validationInfo?.shippingAddress?.address;
-  return FOXPOST_POINT_MARKER.test(String(address?.addressLine2 || ''));
-}
+import {
+  FOXPOST_CODE,
+  isFoxpostDeliveryAddress,
+} from '../../../../lib/foxpost-core';
 
 export default validations.provideHandlers({
   getValidationViolations: async ({ request }) => {
@@ -18,17 +14,17 @@ export default validations.provideHandlers({
       return { violations: [] };
     }
 
-    if (hasFoxpostPoint(validationInfo)) {
+    if (isFoxpostDeliveryAddress(validationInfo?.shippingAddress?.address)) {
       return { violations: [] };
     }
 
     return {
       violations: [
         {
-          severity: 'ERROR',
+          severity: validations.Severity.ERROR,
           target: {
             other: {
-              name: 'OTHER_DEFAULT',
+              name: validations.NameInOther.OTHER_DEFAULT,
             },
           },
           description:
