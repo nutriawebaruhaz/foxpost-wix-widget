@@ -397,7 +397,7 @@
     <div class="selected" id="selectedBox">
       <b>Kiválasztva:</b>
       <div id="selectedText"></div>
-      <div class="small">A választás automatikusan mentésre kerül a kosár megjegyzésébe.</div>
+      <div class="small">A kiválasztott pont adatai strukturáltan kerülnek átadásra a checkoutnak.</div>
     </div>
 
     <div class="status" id="statusText"></div>
@@ -407,7 +407,7 @@
   <script src="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 
   <script>
-    console.log("Foxpost saját skines Leaflet widget betöltött - MPL kompatibilis");
+    console.log("FOXPOST pickup widget betöltött - checkout v2");
 
     var FOXPOST_JSON_URL = "https://cdn.foxpost.hu/foxplus.json";
 
@@ -531,6 +531,31 @@
       });
     }
 
+    function buildSelectedPointData(point) {
+      var latitude = parseFloat(point.geolat);
+      var longitude = parseFloat(point.geolng);
+
+      return {
+        provider: "FOXPOST",
+        destinationId: getDestination(point),
+        operatorId: clean(point.operator_id),
+        placeId: clean(point.place_id),
+        name: clean(point.name),
+        postalCode: clean(point.zip),
+        city: clean(point.city),
+        addressLine1: clean(point.address || point.street),
+        street: clean(point.street),
+        country: clean(point.country || "HU"),
+        latitude: isFinite(latitude) ? latitude : null,
+        longitude: isFinite(longitude) ? longitude : null,
+        variant: clean(point.variant),
+        service: clean(point.serviceString),
+        paymentOptions: clean(point.paymentOptionsString),
+        load: clean(point.load),
+        findme: shorten(point.findme, 160)
+      };
+    }
+
     function buildSelectedPointText(point) {
       var destination = getDestination(point);
       var operatorId = clean(point.operator_id);
@@ -582,7 +607,7 @@
         + (payment ? '<span class="tag">' + payment + '</span>' : '')
         + (load ? '<span class="tag">' + load + '</span>' : '')
         + '</div>'
-        + '<button class="selectBtn" onclick="selectFoxpostPoint(\'' + key + '\')">Csomagautomata kiválasztása</button>'
+        + '<button class="selectBtn" onclick="selectFoxpostPoint(\'' + key + '\')">Átvételi pont kiválasztása</button>'
         + '</div>'
         + '</div>';
     }
@@ -684,6 +709,7 @@
         return;
       }
 
+      var selectedPoint = buildSelectedPointData(point);
       var selectedPointText = buildSelectedPointText(point);
 
       var box = document.getElementById("selectedBox");
@@ -692,18 +718,24 @@
 
       if (box && text) {
         box.style.display = "block";
-        text.textContent = selectedPointText;
+        text.textContent = selectedPoint.name
+          + " — "
+          + [selectedPoint.postalCode, selectedPoint.city, selectedPoint.addressLine1]
+              .filter(Boolean)
+              .join(" ");
       }
 
       if (status) {
-        status.textContent = "Foxpost pont kiválasztva, adat küldése a Wix kosárnak...";
+        status.textContent = "FOXPOST pont kiválasztva. A checkout frissítése folyamatban...";
       }
 
-      console.log("Foxpost kiválasztva, küldés Wix felé:", selectedPointText);
+      console.log("FOXPOST pickup kiválasztva:", selectedPoint);
 
       window.parent.postMessage({
-        type: "MPL_SELECTED",
-        data: selectedPointText
+        type: "FOXPOST_PICKUP_SELECTED",
+        version: 2,
+        data: selectedPoint,
+        legacyText: selectedPointText
       }, "*");
     }
 
