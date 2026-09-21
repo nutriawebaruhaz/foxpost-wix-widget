@@ -60,9 +60,16 @@ export function splitStreet(street: string): { name: string; number?: string } {
     return { name: clean };
   }
 
+  const streetName = match[1];
+  const streetNumber = match[2];
+
+  if (!streetName || !streetNumber) {
+    return { name: clean };
+  }
+
   return {
-    name: match[1].trim(),
-    number: match[2].trim(),
+    name: streetName.trim(),
+    number: streetNumber.trim(),
   };
 }
 
