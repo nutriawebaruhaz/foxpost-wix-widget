@@ -1,27 +1,9 @@
 import { shippingRates } from '@wix/ecom/service-plugins';
-
-const FOXPOST_CODE = 'foxpost_pickup';
-const STANDARD_PRICE_HUF = 1990;
-const FREE_SHIPPING_FROM_HUF = 30000;
-
-function money(value: unknown): number {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function cartValue(request: any): number {
-  return (request.lineItems || []).reduce((sum: number, item: any) => {
-    if (item.totalPrice !== undefined && item.totalPrice !== null) {
-      return sum + money(item.totalPrice);
-    }
-
-    return sum + money(item.price) * money(item.quantity || 1);
-  }, 0);
-}
-
-function isFoxpostPoint(address: any): boolean {
-  return /(?:^|[·|\s])FOXPOST\s+[A-Z0-9-]+/i.test(address?.addressLine2 || '');
-}
+import {
+  FOXPOST_CODE,
+  foxpostShippingPrice,
+  isFoxpostDeliveryAddress,
+} from '../../../../lib/foxpost-core';
 
 export default shippingRates.provideHandlers({
   getShippingRates: async ({ request, metadata }) => {
@@ -33,15 +15,12 @@ export default shippingRates.provideHandlers({
       return { shippingRates: [] };
     }
 
-    // Nutri-A currently sells in HUF. Do not silently reuse the HUF price
-    // if a future checkout requests another currency.
     if (currency !== 'HUF') {
       return { shippingRates: [] };
     }
 
-    const total = cartValue(request);
-    const selectedPoint = isFoxpostPoint(destination);
-    const price = total >= FREE_SHIPPING_FROM_HUF ? 0 : STANDARD_PRICE_HUF;
+    const selectedPoint = isFoxpostDeliveryAddress(destination);
+    const price = foxpostShippingPrice(request.lineItems);
 
     return {
       shippingRates: [
