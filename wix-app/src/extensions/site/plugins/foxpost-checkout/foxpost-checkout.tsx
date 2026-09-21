@@ -27,6 +27,7 @@ type FoxpostPoint = {
 };
 
 const FOXPOST_OPTION_ID = 'foxpost_pickup';
+const FOXPOST_CARRIER_APP_ID = '48809dd6-3504-4e8d-9021-c2b4003571a9';
 const FOXPOST_ORIGIN = 'https://cdn.foxpost.hu';
 const FOXPOST_PICKER_URL = 'https://cdn.foxpost.hu/apt-finder/v1/app/?lang=hu';
 
@@ -108,7 +109,13 @@ class NutriAFoxpostCheckout extends HTMLElement {
 
   private get isFoxpostSelected(): boolean {
     const optionId = this.getAttribute('selected-delivery-option-id') || '';
-    return optionId === FOXPOST_OPTION_ID || optionId.startsWith(`${FOXPOST_OPTION_ID}:`);
+    const carrierId = this.getAttribute('selected-delivery-option-carrier-id') || '';
+
+    return (
+      carrierId === FOXPOST_CARRIER_APP_ID ||
+      optionId === FOXPOST_OPTION_ID ||
+      optionId.startsWith(`${FOXPOST_OPTION_ID}:`)
+    );
   }
 
   private get deliveryStepState(): string {
