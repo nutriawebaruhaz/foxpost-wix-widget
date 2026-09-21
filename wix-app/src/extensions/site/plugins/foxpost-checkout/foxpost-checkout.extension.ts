@@ -19,4 +19,5 @@ export default extensions.sitePlugin({
   },
   tagName: 'nutri-a-foxpost-checkout',
   element: './extensions/site/plugins/foxpost-checkout/foxpost-checkout.tsx',
+  settings: './extensions/site/plugins/foxpost-checkout/foxpost-checkout.panel.tsx',
 });
