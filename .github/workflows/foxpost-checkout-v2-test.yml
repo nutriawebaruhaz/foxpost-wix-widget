@@ -38,12 +38,45 @@ jobs:
           node-version: '22'
 
       - name: Install Wix SDK and TypeScript dependencies
-        run: |
-          npm install --no-save             typescript@latest             @types/node@latest             @types/react@latest             react@latest             @wix/ecom@latest             @wix/astro@latest             @wix/dashboard@latest             @wix/design-system@latest             @wix/editor@latest
+        run: >
+          npm install --no-save
+          typescript@latest
+          @types/node@latest
+          @types/react@18
+          @types/react-dom@18
+          react@18.3.1
+          react-dom@18.3.1
+          @wix/ecom@latest
+          @wix/astro@latest
+          @wix/dashboard@latest
+          @wix/design-system@latest
+          @wix/editor@latest
 
       - name: Type-check FOXPOST Wix sources
-        run: |
-          npx tsc --noEmit             --strict             --noImplicitAny             --strictNullChecks             --exactOptionalPropertyTypes             --noUncheckedIndexedAccess             --skipLibCheck             --target ES2022             --module ESNext             --moduleResolution Bundler             --jsx react-jsx             --lib ES2022,DOM             wix-app/src/extensions.ts             wix-app/src/lib/foxpost-core.ts             wix-app/src/extensions/site/plugins/foxpost-checkout/foxpost-checkout.tsx             wix-app/src/extensions/site/plugins/foxpost-checkout/foxpost-checkout.panel.tsx             wix-app/src/extensions/site/plugins/foxpost-checkout/foxpost-checkout.extension.ts             wix-app/src/extensions/backend/service-plugins/foxpost-shipping-rates/foxpost-shipping-rates.ts             wix-app/src/extensions/backend/service-plugins/foxpost-shipping-rates/foxpost-shipping-rates.extension.ts             wix-app/src/extensions/backend/service-plugins/foxpost-validation/foxpost-validation.ts             wix-app/src/extensions/backend/service-plugins/foxpost-validation/foxpost-validation.extension.ts             wix-app/src/extensions/dashboard/pages/foxpost-setup/foxpost-setup.tsx             wix-app/src/extensions/dashboard/pages/foxpost-setup/foxpost-setup.extension.ts
+        run: >
+          npx tsc --noEmit
+          --strict
+          --noImplicitAny
+          --strictNullChecks
+          --exactOptionalPropertyTypes
+          --noUncheckedIndexedAccess
+          --skipLibCheck
+          --target ES2022
+          --module ESNext
+          --moduleResolution Bundler
+          --jsx react-jsx
+          --lib ES2022,DOM
+          wix-app/src/extensions.ts
+          wix-app/src/lib/foxpost-core.ts
+          wix-app/src/extensions/site/plugins/foxpost-checkout/foxpost-checkout.tsx
+          wix-app/src/extensions/site/plugins/foxpost-checkout/foxpost-checkout.panel.tsx
+          wix-app/src/extensions/site/plugins/foxpost-checkout/foxpost-checkout.extension.ts
+          wix-app/src/extensions/backend/service-plugins/foxpost-shipping-rates/foxpost-shipping-rates.ts
+          wix-app/src/extensions/backend/service-plugins/foxpost-shipping-rates/foxpost-shipping-rates.extension.ts
+          wix-app/src/extensions/backend/service-plugins/foxpost-validation/foxpost-validation.ts
+          wix-app/src/extensions/backend/service-plugins/foxpost-validation/foxpost-validation.extension.ts
+          wix-app/src/extensions/dashboard/pages/foxpost-setup/foxpost-setup.tsx
+          wix-app/src/extensions/dashboard/pages/foxpost-setup/foxpost-setup.extension.ts
 
   no-release-guard:
     runs-on: ubuntu-latest
