@@ -198,16 +198,18 @@ class NutriAFoxpostCheckout extends HTMLElement {
           .replace(/\s*[·|-]\s*FOXPOST\s+[A-Z0-9-]+.*$/i, '')
           .trim();
 
+        const restoredStreet = [
+          address?.streetAddress?.name,
+          address?.streetAddress?.number,
+        ].filter(Boolean).join(' ');
+
         this.selectedPoint = {
           operator_id: pointId,
           name: label || 'FOXPOST átvételi pont',
-          zip: address?.postalCode,
-          city: address?.city,
-          street: [
-            address?.streetAddress?.name,
-            address?.streetAddress?.number,
-          ].filter(Boolean).join(' '),
-          country: address?.country,
+          ...(address?.postalCode ? { zip: address.postalCode } : {}),
+          ...(address?.city ? { city: address.city } : {}),
+          ...(restoredStreet ? { street: restoredStreet } : {}),
+          ...(address?.country ? { country: address.country } : {}),
         };
         this.pickerOpen = false;
       }
