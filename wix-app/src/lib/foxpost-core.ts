@@ -187,30 +187,18 @@ export function buildFoxpostShippingRate(
     destination !== undefined && isFoxpostDeliveryAddress(destination);
   const price = foxpostShippingPrice(request.lineItems);
 
-  const logistics = selectedPoint
-    ? {
-        deliveryTime: '1–4 munkanap',
-        instructions:
-          'A kiválasztott FOXPOST átvételi pont a rendelés szállítási adataiban szerepel.',
-        pickupDetails: {
-          address: sanitizeDeliveryAddress(destination),
-          pickupMethod: 'PICKUP_POINT' as const,
-        },
-      }
-    : {
-        deliveryTime: '1–4 munkanap',
-        instructions:
-          'A folytatáshoz válassz FOXPOST automatát vagy átvételi pontot.',
-      };
-
   return {
     code: FOXPOST_CODE,
     title: 'FOXPOST automata / átvételi pont',
-    logistics,
-    cost: {
-      price: String(price),
-      currency: normalizedCurrency,
-    },
+    deliveryTime: '1–4 munkanap',
+    instructions: selectedPoint
+      ? 'A kiválasztott FOXPOST átvételi pont a rendelés szállítási adataiban szerepel.'
+      : 'A folytatáshoz válassz FOXPOST automatát vagy átvételi pontot.',
+    pickupAddress: selectedPoint
+      ? sanitizeDeliveryAddress(destination)
+      : null,
+    price: String(price),
+    currency: normalizedCurrency,
   };
 }
 
