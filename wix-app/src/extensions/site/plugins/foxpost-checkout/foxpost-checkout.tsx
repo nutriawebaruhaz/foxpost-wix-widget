@@ -4,7 +4,8 @@ import {
   FOXPOST_CODE,
   type DeliveryAddress,
   type FoxpostPoint,
-  buildFoxpostDeliveryAddress,
+  buildFoxpostCartAddress,
+  foxpostPointFromAddressLine2,
   foxpostPointId,
   foxpostPointIdFromAddressLine2,
   isFoxpostDeliveryAddress,
@@ -188,12 +189,17 @@ class NutriAFoxpostCheckout extends HTMLElement {
       const response = await currentCartV2.getCurrentCart();
       const address = response.cart?.deliveryInfo?.address as DeliveryAddress | undefined;
       const pointId = foxpostPointIdFromAddressLine2(address?.addressLine2);
+      const storedPoint = foxpostPointFromAddressLine2(address?.addressLine2);
 
       if (!pointId) {
         this.savePreviousAddress(address);
         this.selectedPoint = null;
         this.pickerOpen = true;
+      } else if (storedPoint && isSelectableFoxpostPoint(storedPoint)) {
+        this.selectedPoint = storedPoint;
+        this.pickerOpen = false;
       } else {
+        // Backwards compatibility for carts created with the legacy marker.
         const addressLine2 = address?.addressLine2 || '';
         const label = addressLine2
           .replace(/\s*[·|-]\s*FOXPOST\s+[A-Z0-9-]+.*$/i, '')
@@ -295,14 +301,28 @@ class NutriAFoxpostCheckout extends HTMLElement {
     try {
       const current = await currentCartV2.getCurrentCart();
       const currentAddress = current.cart?.deliveryInfo?.address as DeliveryAddress | undefined;
+      const existingBillingAddress = current.cart?.paymentInfo?.billingAddress as DeliveryAddress | undefined;
+
       this.savePreviousAddress(currentAddress);
 
-      const address = buildFoxpostDeliveryAddress(point);
+      const address = buildFoxpostCartAddress(currentAddress, point);
+      const billingSource =
+        existingBillingAddress ??
+        (!isFoxpostDeliveryAddress(currentAddress)
+          ? currentAddress
+          : this.previousDeliveryAddress);
 
       await currentCartV2.updateCurrentCart({
         deliveryInfo: {
           address,
         },
+        ...(billingSource
+          ? {
+              paymentInfo: {
+                billingAddress: sanitizeDeliveryAddress(billingSource),
+              },
+            }
+          : {}),
       });
 
       this.selectedPoint = point;
