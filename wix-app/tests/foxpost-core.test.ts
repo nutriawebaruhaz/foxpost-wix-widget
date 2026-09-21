@@ -146,8 +146,8 @@ test('Shipping rate before point selection is selectable but not yet pickupDetai
 
   assert.ok(rate);
   assert.equal(rate?.code, FOXPOST_CODE);
-  assert.equal(rate?.cost.price, '1990');
-  assert.equal('pickupDetails' in (rate?.logistics || {}), false);
+  assert.equal(rate?.price, '1990');
+  assert.equal(rate?.pickupAddress, null);
 });
 
 test('Shipping rate after point selection becomes a PICKUP_POINT', () => {
@@ -161,9 +161,8 @@ test('Shipping rate after point selection becomes a PICKUP_POINT', () => {
   );
 
   assert.ok(rate);
-  assert.equal(rate?.cost.price, '0');
-  assert.equal(rate?.logistics.pickupDetails?.pickupMethod, 'PICKUP_POINT');
-  assert.deepEqual(rate?.logistics.pickupDetails?.address, destination);
+  assert.equal(rate?.price, '0');
+  assert.deepEqual(rate?.pickupAddress, destination);
 });
 
 test('Wix pickup address output removes null fields', () => {
