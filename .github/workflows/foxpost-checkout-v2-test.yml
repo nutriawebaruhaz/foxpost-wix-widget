@@ -28,7 +28,7 @@ jobs:
       - name: Run FOXPOST flow tests
         run: npx tsx wix-app/tests/foxpost-core.test.ts
 
-  wix-source-typecheck:
+  wix-backend-builder-typecheck:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -52,12 +52,7 @@ jobs:
           @wix/design-system@latest
           @wix/editor@latest
 
-      - name: Inspect currentCartV2 SDK signatures
-        run: |
-          grep -R "updateCurrentCart" node_modules/@wix/ecom/dist -n | head -40 || true
-          grep -R "updateCurrentCart" node_modules/@wix/ecom -n --include='*.d.ts' | head -40 || true
-
-      - name: Type-check FOXPOST Wix sources
+      - name: Type-check FOXPOST backend and extension builders
         run: >
           npx tsc --noEmit
           --strict
@@ -71,15 +66,14 @@ jobs:
           --moduleResolution Bundler
           --jsx react-jsx
           --lib ES2022,DOM
-          wix-app/src/extensions.ts
+          wix-app/src/global.d.ts
           wix-app/src/lib/foxpost-core.ts
-          wix-app/src/extensions/site/plugins/foxpost-checkout/foxpost-checkout.tsx
-          wix-app/src/extensions/site/plugins/foxpost-checkout/foxpost-checkout.panel.tsx
-          wix-app/src/extensions/site/plugins/foxpost-checkout/foxpost-checkout.extension.ts
           wix-app/src/extensions/backend/service-plugins/foxpost-shipping-rates/foxpost-shipping-rates.ts
           wix-app/src/extensions/backend/service-plugins/foxpost-shipping-rates/foxpost-shipping-rates.extension.ts
           wix-app/src/extensions/backend/service-plugins/foxpost-validation/foxpost-validation.ts
           wix-app/src/extensions/backend/service-plugins/foxpost-validation/foxpost-validation.extension.ts
+          wix-app/src/extensions/site/plugins/foxpost-checkout/foxpost-checkout.extension.ts
+          wix-app/src/extensions/site/plugins/foxpost-checkout/foxpost-checkout.panel.tsx
           wix-app/src/extensions/dashboard/pages/foxpost-setup/foxpost-setup.tsx
           wix-app/src/extensions/dashboard/pages/foxpost-setup/foxpost-setup.extension.ts
 
