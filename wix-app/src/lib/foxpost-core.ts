@@ -22,14 +22,14 @@ export type FoxpostPoint = {
 
 export type DeliveryAddress = {
   streetAddress?: {
-    name?: string;
-    number?: string;
+    name?: string | null;
+    number?: string | null;
   };
-  city?: string;
-  subdivision?: string;
-  country?: string;
-  postalCode?: string;
-  addressLine2?: string;
+  city?: string | null;
+  subdivision?: string | null;
+  country?: string | null;
+  postalCode?: string | null;
+  addressLine2?: string | null;
 };
 
 export function foxpostPointId(point: FoxpostPoint): string | null {
@@ -94,7 +94,7 @@ export function buildFoxpostDeliveryAddress(point: FoxpostPoint): DeliveryAddres
   };
 }
 
-export function foxpostPointIdFromAddressLine2(addressLine2: string | undefined): string | null {
+export function foxpostPointIdFromAddressLine2(addressLine2: string | null | undefined): string | null {
   const match = String(addressLine2 ?? '').match(/FOXPOST\s+([A-Z0-9-]+)/i);
   return match?.[1] ?? null;
 }
@@ -150,26 +150,30 @@ export function buildFoxpostShippingRate(
     return null;
   }
 
-  const selectedPoint = isFoxpostDeliveryAddress(destination);
+  const selectedPoint =
+    destination !== undefined && isFoxpostDeliveryAddress(destination);
   const price = foxpostShippingPrice(request.lineItems);
+
+  const logistics = selectedPoint
+    ? {
+        deliveryTime: '1–4 munkanap',
+        instructions:
+          'A kiválasztott FOXPOST átvételi pont a rendelés szállítási adataiban szerepel.',
+        pickupDetails: {
+          address: destination,
+          pickupMethod: 'PICKUP_POINT' as const,
+        },
+      }
+    : {
+        deliveryTime: '1–4 munkanap',
+        instructions:
+          'A folytatáshoz válassz FOXPOST automatát vagy átvételi pontot.',
+      };
 
   return {
     code: FOXPOST_CODE,
     title: 'FOXPOST automata / átvételi pont',
-    logistics: {
-      deliveryTime: '1–4 munkanap',
-      instructions: selectedPoint
-        ? 'A kiválasztott FOXPOST átvételi pont a rendelés szállítási adataiban szerepel.'
-        : 'A folytatáshoz válassz FOXPOST automatát vagy átvételi pontot.',
-      ...(selectedPoint
-        ? {
-            pickupDetails: {
-              address: destination,
-              pickupMethod: 'PICKUP_POINT' as const,
-            },
-          }
-        : {}),
-    },
+    logistics,
     cost: {
       price: String(price),
       currency: normalizedCurrency,
