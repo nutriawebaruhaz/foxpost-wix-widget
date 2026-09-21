@@ -1,9 +1,13 @@
 import assert from 'node:assert/strict';
 import {
+  FOXPOST_CARRIER_APP_ID,
   FOXPOST_CODE,
-  buildFoxpostDeliveryAddress,
+  buildFoxpostCartAddress,
+  buildFoxpostPickupAddress,
+  buildFoxpostPointMarker,
   buildFoxpostShippingRate,
   cartValue,
+  foxpostPointFromAddressLine2,
   foxpostPointId,
   foxpostPointIdFromAddressLine2,
   foxpostShippingPrice,
@@ -75,21 +79,53 @@ test('Street parser separates ordinary Hungarian house number', () => {
   });
 });
 
-test('FOXPOST delivery address contains customer-visible point and internal ID marker', () => {
-  const address = buildFoxpostDeliveryAddress(foxpostPoint);
+test('FOXPOST carrier ID matches the released custom app', () => {
+  assert.equal(FOXPOST_CARRIER_APP_ID, 'ae3fcc51-5b48-49ea-ba28-ab54d642679b');
+});
+
+test('FOXPOST pickup address contains the real pickup location', () => {
+  const address = buildFoxpostPickupAddress(foxpostPoint);
   assert.equal(address.country, 'HU');
   assert.equal(address.postalCode, '9081');
   assert.equal(address.city, 'Győrújbarát');
   assert.equal(address.streetAddress?.name, 'István utca');
   assert.equal(address.streetAddress?.number, '67.');
-  assert.equal(address.addressLine2, 'Győrújbarát Gabi Cukrászat · FOXPOST HU5516');
-  assert.equal(foxpostPointIdFromAddressLine2(address.addressLine2), 'HU5516');
-  assert.equal(isFoxpostDeliveryAddress(address), true);
+  assert.equal(address.addressLine2, 'Győrújbarát Gabi Cukrászat');
 });
 
-test('Packeta delivery address is also persisted with a stable fallback ID', () => {
-  const address = buildFoxpostDeliveryAddress(packetaPoint);
-  assert.match(address.addressLine2 || '', /FOXPOST 987654$/);
+test('Cart marker preserves the buyer address while storing the selected FOXPOST point', () => {
+  const buyerAddress = {
+    streetAddress: { name: 'Baross utca', number: '41.' },
+    city: 'Budapest',
+    subdivision: 'HU-BU',
+    country: 'HU',
+    postalCode: '1093',
+  };
+  const address = buildFoxpostCartAddress(buyerAddress, foxpostPoint);
+
+  assert.equal(address.streetAddress?.name, 'Baross utca');
+  assert.equal(address.streetAddress?.number, '41.');
+  assert.equal(address.postalCode, '1093');
+  assert.equal(foxpostPointIdFromAddressLine2(address.addressLine2), 'HU5516');
+  assert.equal(isFoxpostDeliveryAddress(address), true);
+
+  const restored = foxpostPointFromAddressLine2(address.addressLine2);
+  assert.ok(restored);
+  assert.equal(restored?.zip, '9081');
+  assert.equal(restored?.city, 'Győrújbarát');
+  assert.equal(restored?.street, 'István utca 67.');
+  assert.equal(restored?.name, 'Győrújbarát Gabi Cukrászat');
+});
+
+test('FOXPOST marker is compact and round-trips special characters', () => {
+  const marker = buildFoxpostPointMarker(foxpostPoint);
+  assert.match(marker, /^FP2\|HU5516\|HU\|/);
+  assert.equal(foxpostPointFromAddressLine2(marker)?.name, foxpostPoint.name);
+});
+
+test('Fallback pickup ID is persisted for a point without operator_id', () => {
+  const address = buildFoxpostCartAddress({ country: 'HU' }, packetaPoint);
+  assert.equal(foxpostPointIdFromAddressLine2(address.addressLine2), '987654');
   assert.equal(isFoxpostDeliveryAddress(address), true);
 });
 
@@ -150,8 +186,15 @@ test('Shipping rate before point selection is selectable but not yet pickupDetai
   assert.equal(rate?.pickupAddress, null);
 });
 
-test('Shipping rate after point selection becomes a PICKUP_POINT', () => {
-  const destination = buildFoxpostDeliveryAddress(foxpostPoint);
+test('Shipping rate after point selection uses the real pickup address, not the buyer address', () => {
+  const buyerAddress = {
+    streetAddress: { name: 'Baross utca', number: '41.' },
+    city: 'Budapest',
+    subdivision: 'HU-BU',
+    country: 'HU',
+    postalCode: '1093',
+  };
+  const destination = buildFoxpostCartAddress(buyerAddress, foxpostPoint);
   const rate = buildFoxpostShippingRate(
     {
       lineItems: [{ totalPrice: '31000' }],
@@ -162,7 +205,11 @@ test('Shipping rate after point selection becomes a PICKUP_POINT', () => {
 
   assert.ok(rate);
   assert.equal(rate?.price, '0');
-  assert.deepEqual(rate?.pickupAddress, destination);
+  assert.deepEqual(
+    rate?.pickupAddress,
+    sanitizeDeliveryAddress(buildFoxpostPickupAddress(foxpostPoint))
+  );
+  assert.notEqual(rate?.pickupAddress?.postalCode, buyerAddress.postalCode);
 });
 
 test('Wix pickup address output removes null fields', () => {
@@ -193,7 +240,7 @@ test('FOXPOST checkout is blocked until a pickup address is present', () => {
   assert.equal(
     shouldBlockFoxpostCheckout(
       FOXPOST_CODE,
-      buildFoxpostDeliveryAddress(foxpostPoint)
+      buildFoxpostCartAddress({ country: 'HU' }, foxpostPoint)
     ),
     false
   );
