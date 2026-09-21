@@ -1,4 +1,15 @@
 import { currentCartV2 } from '@wix/ecom';
+import {
+  FOXPOST_CARRIER_APP_ID,
+  FOXPOST_CODE,
+  type DeliveryAddress,
+  type FoxpostPoint,
+  buildFoxpostDeliveryAddress,
+  foxpostPointId,
+  foxpostPointIdFromAddressLine2,
+  isFoxpostDeliveryAddress,
+  isSelectableFoxpostPoint,
+} from '../../../../lib/foxpost-core';
 
 type SlotBrand = {
   backgroundColor?: string;
@@ -9,25 +20,6 @@ type SlotBrand = {
   cornerRadius?: number;
 };
 
-type FoxpostPoint = {
-  place_id?: number | string;
-  operator_id?: string;
-  name?: string;
-  address?: string;
-  zip?: string;
-  city?: string;
-  street?: string;
-  findme?: string;
-  geolat?: number;
-  geolng?: number;
-  country?: string;
-  variant?: string;
-  serviceString?: string;
-  paymentOptionsString?: string;
-};
-
-const FOXPOST_OPTION_ID = 'foxpost_pickup';
-const FOXPOST_CARRIER_APP_ID = '48809dd6-3504-4e8d-9021-c2b4003571a9';
 const FOXPOST_ORIGIN = 'https://cdn.foxpost.hu';
 const FOXPOST_PICKER_URL = 'https://cdn.foxpost.hu/apt-finder/v1/app/?lang=hu';
 
@@ -40,24 +32,11 @@ function escapeHtml(value: unknown): string {
     .replace(/'/g, '&#039;');
 }
 
-function splitStreet(street: string): { name: string; number?: string } {
-  const clean = street.trim();
-  const match = clean.match(/^(.*?)[,\s]+(\d+[A-Za-z]?\.?(?:\s*[-/]\s*\d+[A-Za-z]?\.?)?)$/);
-
-  if (!match) {
-    return { name: clean };
-  }
-
-  return {
-    name: match[1].trim(),
-    number: match[2].trim(),
-  };
-}
-
 class NutriAFoxpostCheckout extends HTMLElement {
   private refreshCheckoutCallback: (() => Promise<void>) | null = null;
   private continueButtonCallback: ((isDisabled: boolean) => void) | null = null;
   private selectedPoint: FoxpostPoint | null = null;
+  private previousDeliveryAddress: DeliveryAddress | null = null;
   private pickerOpen = false;
   private saving = false;
   private errorMessage = '';
@@ -77,7 +56,8 @@ class NutriAFoxpostCheckout extends HTMLElement {
   connectedCallback() {
     window.addEventListener('message', this.handleFoxpostMessage);
     this.readBrand();
-    void this.syncSelectionFromCart();
+    this.loadPreviousAddress();
+    void this.handleDeliveryOptionState();
     this.render();
   }
 
@@ -90,8 +70,12 @@ class NutriAFoxpostCheckout extends HTMLElement {
       this.readBrand();
     }
 
-    if (name === 'selected-delivery-option-id' || name === 'checkout-updated-date') {
-      void this.syncSelectionFromCart();
+    if (
+      name === 'selected-delivery-option-id' ||
+      name === 'selected-delivery-option-carrier-id' ||
+      name === 'checkout-updated-date'
+    ) {
+      void this.handleDeliveryOptionState();
     }
 
     this.applyContinueState();
@@ -113,13 +97,18 @@ class NutriAFoxpostCheckout extends HTMLElement {
 
     return (
       carrierId === FOXPOST_CARRIER_APP_ID ||
-      optionId === FOXPOST_OPTION_ID ||
-      optionId.startsWith(`${FOXPOST_OPTION_ID}:`)
+      optionId === FOXPOST_CODE ||
+      optionId.startsWith(`${FOXPOST_CODE}:`)
     );
   }
 
   private get deliveryStepState(): string {
     return this.getAttribute('delivery-step-state') || 'open';
+  }
+
+  private get storageKey(): string {
+    const checkoutId = this.getAttribute('checkout-id') || 'current';
+    return `nutri-a:foxpost:previous-address:${checkoutId}`;
   }
 
   private readBrand() {
@@ -137,6 +126,41 @@ class NutriAFoxpostCheckout extends HTMLElement {
     }
   }
 
+  private loadPreviousAddress() {
+    try {
+      const raw = window.sessionStorage.getItem(this.storageKey);
+      if (raw) {
+        this.previousDeliveryAddress = JSON.parse(raw);
+      }
+    } catch {
+      this.previousDeliveryAddress = null;
+    }
+  }
+
+  private savePreviousAddress(address: DeliveryAddress | undefined) {
+    if (!address || isFoxpostDeliveryAddress(address)) {
+      return;
+    }
+
+    this.previousDeliveryAddress = address;
+
+    try {
+      window.sessionStorage.setItem(this.storageKey, JSON.stringify(address));
+    } catch {
+      // Storage can be unavailable in editor sandboxes. In-memory backup remains active.
+    }
+  }
+
+  private clearPreviousAddress() {
+    this.previousDeliveryAddress = null;
+
+    try {
+      window.sessionStorage.removeItem(this.storageKey);
+    } catch {
+      // Ignore storage cleanup failures.
+    }
+  }
+
   private applyContinueState() {
     if (!this.continueButtonCallback) {
       return;
@@ -149,26 +173,33 @@ class NutriAFoxpostCheckout extends HTMLElement {
     this.continueButtonCallback(shouldDisable);
   }
 
-  private async syncSelectionFromCart() {
-    if (!this.isFoxpostSelected) {
-      this.applyContinueState();
+  private async handleDeliveryOptionState() {
+    if (this.isFoxpostSelected) {
+      await this.syncSelectionFromCart();
       return;
     }
 
+    await this.restorePreviousAddressIfNeeded();
+  }
+
+  private async syncSelectionFromCart() {
     try {
       const response = await currentCartV2.getCurrentCart();
-      const address = response.cart?.deliveryInfo?.address;
-      const addressLine2 = address?.addressLine2 || '';
-      const match = addressLine2.match(/FOXPOST\s+([A-Z0-9-]+)/i);
+      const address = response.cart?.deliveryInfo?.address as DeliveryAddress | undefined;
+      const pointId = foxpostPointIdFromAddressLine2(address?.addressLine2);
 
-      if (!match) {
+      if (!pointId) {
+        this.savePreviousAddress(address);
         this.selectedPoint = null;
         this.pickerOpen = true;
       } else {
-        const label = addressLine2.replace(/\s*[·|-]\s*FOXPOST\s+[A-Z0-9-]+.*$/i, '').trim();
+        const addressLine2 = address?.addressLine2 || '';
+        const label = addressLine2
+          .replace(/\s*[·|-]\s*FOXPOST\s+[A-Z0-9-]+.*$/i, '')
+          .trim();
 
         this.selectedPoint = {
-          operator_id: match[1],
+          operator_id: pointId,
           name: label || 'FOXPOST átvételi pont',
           zip: address?.postalCode,
           city: address?.city,
@@ -190,6 +221,45 @@ class NutriAFoxpostCheckout extends HTMLElement {
     this.render();
   }
 
+  private async restorePreviousAddressIfNeeded() {
+    try {
+      const response = await currentCartV2.getCurrentCart();
+      const currentAddress = response.cart?.deliveryInfo?.address as DeliveryAddress | undefined;
+
+      if (!isFoxpostDeliveryAddress(currentAddress)) {
+        this.selectedPoint = null;
+        this.pickerOpen = false;
+        this.applyContinueState();
+        this.render();
+        return;
+      }
+
+      const restoredAddress = this.previousDeliveryAddress ?? {
+        country: currentAddress?.country || 'HU',
+      };
+
+      await currentCartV2.updateCurrentCart({
+        deliveryInfo: {
+          address: restoredAddress,
+        },
+      });
+
+      this.selectedPoint = null;
+      this.pickerOpen = false;
+      this.errorMessage = '';
+      this.clearPreviousAddress();
+
+      if (this.refreshCheckoutCallback) {
+        await this.refreshCheckoutCallback();
+      }
+    } catch (error) {
+      console.error('FOXPOST: previous delivery address restore failed', error);
+    }
+
+    this.applyContinueState();
+    this.render();
+  }
+
   private handleFoxpostMessage = (event: MessageEvent) => {
     if (event.origin !== FOXPOST_ORIGIN) {
       return;
@@ -203,14 +273,7 @@ class NutriAFoxpostCheckout extends HTMLElement {
       return;
     }
 
-    if (
-      !point ||
-      !point.operator_id ||
-      !point.name ||
-      !point.zip ||
-      !point.city ||
-      !point.street
-    ) {
+    if (!point || !isSelectableFoxpostPoint(point)) {
       return;
     }
 
@@ -225,20 +288,11 @@ class NutriAFoxpostCheckout extends HTMLElement {
     this.render();
 
     try {
-      const street = splitStreet(point.street || '');
-      const operatorId = String(point.operator_id || '').toUpperCase();
-      const pointName = String(point.name || '').trim();
+      const current = await currentCartV2.getCurrentCart();
+      const currentAddress = current.cart?.deliveryInfo?.address as DeliveryAddress | undefined;
+      this.savePreviousAddress(currentAddress);
 
-      const address = {
-        streetAddress: {
-          name: street.name,
-          ...(street.number ? { number: street.number } : {}),
-        },
-        city: String(point.city || '').trim(),
-        country: String(point.country || 'HU').toUpperCase(),
-        postalCode: String(point.zip || '').trim(),
-        addressLine2: `${pointName} · FOXPOST ${operatorId}`,
-      };
+      const address = buildFoxpostDeliveryAddress(point);
 
       await currentCartV2.updateCurrentCart({
         deliveryInfo: {
@@ -269,6 +323,7 @@ class NutriAFoxpostCheckout extends HTMLElement {
     }
 
     const point = this.selectedPoint;
+    const pointId = foxpostPointId(point) || '';
     const address = [point.zip, point.city, point.street].filter(Boolean).join(' ');
 
     return `
@@ -284,7 +339,7 @@ class NutriAFoxpostCheckout extends HTMLElement {
         <div style="flex:1;min-width:0;">
           <div style="font-weight:700;">${escapeHtml(point.name || 'FOXPOST átvételi pont')}</div>
           <div style="margin-top:4px;font-size:13px;opacity:.8;">${escapeHtml(address)}</div>
-          <div style="margin-top:3px;font-size:12px;opacity:.65;">FOXPOST ${escapeHtml(String(point.operator_id || '').toUpperCase())}</div>
+          <div style="margin-top:3px;font-size:12px;opacity:.65;">FOXPOST ${escapeHtml(pointId)}</div>
         </div>
         ${this.deliveryStepState === 'open' ? `
           <button id="foxpost-change-point" type="button" style="
@@ -314,7 +369,9 @@ class NutriAFoxpostCheckout extends HTMLElement {
     const buttonTextColor = this.brand.buttonTextColor || '#ffffff';
     const radius = this.brand.cornerRadius ?? 8;
 
-    const showPicker = this.deliveryStepState === 'open' && (this.pickerOpen || !this.selectedPoint);
+    const showPicker =
+      this.deliveryStepState === 'open' &&
+      (this.pickerOpen || !this.selectedPoint);
 
     this.innerHTML = `
       <div style="background:${background};color:${textColor};padding:12px 0;">
