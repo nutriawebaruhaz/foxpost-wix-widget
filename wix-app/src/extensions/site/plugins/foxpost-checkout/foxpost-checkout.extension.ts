@@ -4,8 +4,8 @@ export default extensions.sitePlugin({
   id: '8c09c67c-c313-433c-9a62-1ce29f5bd414',
   name: 'foxpost-checkout',
   marketData: {
-    name: 'FOXPOST átvételi pont',
-    description: 'FOXPOST automata és átvételi pont választó a checkout szállítási lépésében.',
+    name: 'Foxpost átvételi pont',
+    description: 'Foxpost automata és átvételi pont választó a checkout szállítási lépésében.',
   },
   placements: [
     {
