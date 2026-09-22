@@ -94,7 +94,7 @@ function decodeMarkerPart(value: string | undefined): string {
 export function buildFoxpostPointMarker(point: FoxpostPoint): string {
   const pointId = foxpostPointId(point);
   if (!pointId || !isSelectableFoxpostPoint(point)) {
-    throw new Error('FOXPOST pickup point is incomplete.');
+    throw new Error('Foxpost pickup point is incomplete.');
   }
 
   return [
@@ -140,14 +140,14 @@ export function foxpostPointFromAddressLine2(
     operator_id: legacyMatch[1].toUpperCase(),
     name: value
       .replace(/\s*[·|-]\s*FOXPOST\s+[A-Z0-9-]+.*$/i, '')
-      .trim() || 'FOXPOST átvételi pont',
+      .trim() || 'Foxpost átvételi pont',
   };
 }
 
 export function buildFoxpostPickupAddress(point: FoxpostPoint): DeliveryAddress {
   const pointId = foxpostPointId(point);
   if (!pointId || !isSelectableFoxpostPoint(point)) {
-    throw new Error('FOXPOST pickup point is incomplete.');
+    throw new Error('Foxpost pickup point is incomplete.');
   }
 
   const street = splitStreet(String(point.street ?? ''));
@@ -291,11 +291,11 @@ export function buildFoxpostShippingRate(
 
   return {
     code: FOXPOST_CODE,
-    title: 'FOXPOST automata / átvételi pont',
+    title: 'Foxpost automata / átvételi pont',
     deliveryTime: '1–4 munkanap',
     instructions: selectedPoint
-      ? 'A csomag a kiválasztott FOXPOST automatába / átvételi pontra érkezik.'
-      : 'A folytatáshoz válassz FOXPOST automatát vagy átvételi pontot.',
+      ? 'A csomag a kiválasztott Foxpost automatába / átvételi pontra érkezik.'
+      : 'A folytatáshoz válassz Foxpost automatát vagy átvételi pontot.',
     pickupAddress,
     price: String(price),
     currency: normalizedCurrency,
