@@ -60,8 +60,8 @@ class NutriAFoxpostCheckout extends HTMLElement {
     this.readBrand();
     this.loadPreviousAddress();
 
-    if (this.deliveryStepState === 'open') {
-      void this.handleDeliveryOptionState();
+    if (this.isFoxpostSelected) {
+      void this.syncSelectionFromCart();
     }
 
     this.render();
@@ -77,15 +77,16 @@ class NutriAFoxpostCheckout extends HTMLElement {
     }
 
     if (
-      this.deliveryStepState === 'open' &&
-      (
-        name === 'selected-delivery-option-id' ||
-        name === 'selected-delivery-option-carrier-id' ||
-        name === 'checkout-updated-date' ||
-        name === 'delivery-step-state'
-      )
+      name === 'selected-delivery-option-id' ||
+      name === 'selected-delivery-option-carrier-id' ||
+      name === 'checkout-updated-date' ||
+      name === 'delivery-step-state'
     ) {
-      void this.handleDeliveryOptionState();
+      if (this.isFoxpostSelected) {
+        void this.syncSelectionFromCart();
+      } else if (this.deliveryStepState === 'open') {
+        void this.restorePreviousAddressIfNeeded();
+      }
     }
 
     this.applyContinueState();
@@ -416,7 +417,7 @@ class NutriAFoxpostCheckout extends HTMLElement {
   }
 
   render() {
-    if (this.deliveryStepState !== 'open' || !this.isFoxpostSelected) {
+    if (!this.isFoxpostSelected || this.deliveryStepState === 'summary') {
       this.innerHTML = '';
       if (this.continueButtonCallback) {
         this.continueButtonCallback(false);
@@ -430,7 +431,7 @@ class NutriAFoxpostCheckout extends HTMLElement {
     const buttonTextColor = this.brand.buttonTextColor || '#ffffff';
     const radius = this.brand.cornerRadius ?? 8;
 
-    const showPicker = this.deliveryStepState === 'open';
+    const showPicker = this.deliveryStepState !== 'summary';
 
     this.innerHTML = `
       <div style="background:${background};color:${textColor};padding:12px 0;">
