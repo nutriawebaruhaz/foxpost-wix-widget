@@ -1,19 +1,34 @@
 import { validations } from '@wix/ecom/service-plugins';
+import { shouldBlockFoxpostCheckout } from '../../../../lib/foxpost-core';
 
 export default validations.provideHandlers({
-  getValidationViolations: async () => {
-    /**
-     * Do not block the checkout here.
-     *
-     * Wix can invoke eCommerce validations before the delivery-method step is
-     * opened. If Foxpost was selected earlier (for example on the cart page),
-     * a blocking violation here prevents the buyer from ever reaching the
-     * Foxpost pickup-point selector.
-     *
-     * The checkout Site Plugin is responsible for blocking the delivery-step
-     * Continue button with disableContinueButton() until a valid pickup point
-     * has been selected.
-     */
-    return { violations: [] };
+  getValidationViolations: async ({ request }) => {
+    const validationInfo = request.validationInfo;
+    const selectedCode =
+      validationInfo?.shippingInfo?.selectedCarrierServiceOption?.code;
+
+    if (
+      !shouldBlockFoxpostCheckout(
+        selectedCode,
+        validationInfo?.shippingAddress?.address
+      )
+    ) {
+      return { violations: [] };
+    }
+
+    return {
+      violations: [
+        {
+          severity: validations.Severity.ERROR,
+          target: {
+            other: {
+              name: validations.NameInOther.OTHER_DEFAULT,
+            },
+          },
+          description:
+            'Foxpost szállításnál válassz csomagautomatát vagy átvételi pontot a folytatáshoz.',
+        },
+      ],
+    };
   },
 });
