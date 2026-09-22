@@ -1,6 +1,5 @@
 import { currentCartV2 } from '@wix/ecom';
 import {
-  FOXPOST_CARRIER_APP_ID,
   FOXPOST_CODE,
   type DeliveryAddress,
   type FoxpostPoint,
@@ -43,6 +42,7 @@ class NutriAFoxpostCheckout extends HTMLElement {
   private saving = false;
   private errorMessage = '';
   private brand: SlotBrand = {};
+  private cartDeliveryMethodCode = '';
 
   static get observedAttributes() {
     return [
@@ -59,11 +59,7 @@ class NutriAFoxpostCheckout extends HTMLElement {
     window.addEventListener('message', this.handleFoxpostMessage);
     this.readBrand();
     this.loadPreviousAddress();
-
-    if (this.isFoxpostSelected) {
-      void this.syncSelectionFromCart();
-    }
-
+    void this.handleDeliveryOptionState();
     this.render();
   }
 
@@ -82,11 +78,7 @@ class NutriAFoxpostCheckout extends HTMLElement {
       name === 'checkout-updated-date' ||
       name === 'delivery-step-state'
     ) {
-      if (this.isFoxpostSelected) {
-        void this.syncSelectionFromCart();
-      } else if (this.deliveryStepState === 'open') {
-        void this.restorePreviousAddressIfNeeded();
-      }
+      void this.handleDeliveryOptionState();
     }
 
     this.applyContinueState();
@@ -103,14 +95,7 @@ class NutriAFoxpostCheckout extends HTMLElement {
   }
 
   private get isFoxpostSelected(): boolean {
-    const optionId = this.getAttribute('selected-delivery-option-id') || '';
-    const carrierId = this.getAttribute('selected-delivery-option-carrier-id') || '';
-
-    return (
-      carrierId === FOXPOST_CARRIER_APP_ID ||
-      optionId === FOXPOST_CODE ||
-      optionId.startsWith(`${FOXPOST_CODE}:`)
-    );
+    return this.cartDeliveryMethodCode === FOXPOST_CODE;
   }
 
   private get deliveryStepState(): string {
@@ -186,18 +171,30 @@ class NutriAFoxpostCheckout extends HTMLElement {
   }
 
   private async handleDeliveryOptionState() {
-    if (this.isFoxpostSelected) {
-      await this.syncSelectionFromCart();
-      return;
-    }
-
-    await this.restorePreviousAddressIfNeeded();
-  }
-
-  private async syncSelectionFromCart() {
     try {
       const response = await currentCartV2.getCurrentCart();
-      const address = response.cart?.deliveryInfo?.address as DeliveryAddress | undefined;
+      const cart = response.cart;
+      this.cartDeliveryMethodCode = String(cart?.deliveryInfo?.method?.code ?? '');
+
+      if (this.isFoxpostSelected) {
+        await this.syncSelectionFromCart(cart);
+        return;
+      }
+
+      await this.restorePreviousAddressIfNeeded(cart);
+    } catch (error) {
+      console.error('Foxpost: current cart delivery method sync failed', error);
+      this.cartDeliveryMethodCode = '';
+      this.applyContinueState();
+      this.render();
+    }
+  }
+
+  private async syncSelectionFromCart(cart?: any) {
+    try {
+      const resolvedCart = cart ?? (await currentCartV2.getCurrentCart()).cart;
+      this.cartDeliveryMethodCode = String(resolvedCart?.deliveryInfo?.method?.code ?? '');
+      const address = resolvedCart?.deliveryInfo?.address as DeliveryAddress | undefined;
       const pointId = foxpostPointIdFromAddressLine2(address?.addressLine2);
       const storedPoint = foxpostPointFromAddressLine2(address?.addressLine2);
 
@@ -240,10 +237,11 @@ class NutriAFoxpostCheckout extends HTMLElement {
     this.render();
   }
 
-  private async restorePreviousAddressIfNeeded() {
+  private async restorePreviousAddressIfNeeded(cart?: any) {
     try {
-      const response = await currentCartV2.getCurrentCart();
-      const currentAddress = response.cart?.deliveryInfo?.address as DeliveryAddress | undefined;
+      const resolvedCart = cart ?? (await currentCartV2.getCurrentCart()).cart;
+      this.cartDeliveryMethodCode = String(resolvedCart?.deliveryInfo?.method?.code ?? '');
+      const currentAddress = resolvedCart?.deliveryInfo?.address as DeliveryAddress | undefined;
 
       if (!isFoxpostDeliveryAddress(currentAddress)) {
         this.selectedPoint = null;
@@ -348,6 +346,7 @@ class NutriAFoxpostCheckout extends HTMLElement {
       await currentCartV2.setDeliveryMethodForCurrentCart({
         code: FOXPOST_CODE,
       });
+      this.cartDeliveryMethodCode = FOXPOST_CODE;
 
       // Wix may re-sync billing from delivery while recalculating the method.
       // Re-assert the customer's original billing address afterwards.
