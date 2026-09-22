@@ -59,7 +59,11 @@ class NutriAFoxpostCheckout extends HTMLElement {
     window.addEventListener('message', this.handleFoxpostMessage);
     this.readBrand();
     this.loadPreviousAddress();
-    void this.handleDeliveryOptionState();
+
+    if (this.deliveryStepState === 'open') {
+      void this.handleDeliveryOptionState();
+    }
+
     this.render();
   }
 
@@ -73,9 +77,13 @@ class NutriAFoxpostCheckout extends HTMLElement {
     }
 
     if (
-      name === 'selected-delivery-option-id' ||
-      name === 'selected-delivery-option-carrier-id' ||
-      name === 'checkout-updated-date'
+      this.deliveryStepState === 'open' &&
+      (
+        name === 'selected-delivery-option-id' ||
+        name === 'selected-delivery-option-carrier-id' ||
+        name === 'checkout-updated-date' ||
+        name === 'delivery-step-state'
+      )
     ) {
       void this.handleDeliveryOptionState();
     }
@@ -105,7 +113,7 @@ class NutriAFoxpostCheckout extends HTMLElement {
   }
 
   private get deliveryStepState(): string {
-    return this.getAttribute('delivery-step-state') || 'open';
+    return this.getAttribute('delivery-step-state') || '';
   }
 
   private get storageKey(): string {
@@ -169,6 +177,7 @@ class NutriAFoxpostCheckout extends HTMLElement {
     }
 
     const shouldDisable =
+      this.deliveryStepState === 'open' &&
       this.isFoxpostSelected &&
       (!this.selectedPoint || this.saving || Boolean(this.errorMessage));
 
@@ -407,7 +416,7 @@ class NutriAFoxpostCheckout extends HTMLElement {
   }
 
   render() {
-    if (!this.isFoxpostSelected || this.deliveryStepState === 'summary') {
+    if (this.deliveryStepState !== 'open' || !this.isFoxpostSelected) {
       this.innerHTML = '';
       if (this.continueButtonCallback) {
         this.continueButtonCallback(false);
