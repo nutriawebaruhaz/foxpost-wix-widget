@@ -1,5 +1,5 @@
 export const FOXPOST_CODE = 'foxpost_pickup';
-export const FOXPOST_CARRIER_APP_ID = '48809dd6-3504-4e8d-9021-c2b4003571a9';
+export const FOXPOST_CARRIER_APP_ID = 'ae3fcc51-5b48-49ea-ba28-ab54d642679b';
 export const STANDARD_PRICE_HUF = 1990;
 export const FREE_SHIPPING_FROM_HUF = 30000;
 
