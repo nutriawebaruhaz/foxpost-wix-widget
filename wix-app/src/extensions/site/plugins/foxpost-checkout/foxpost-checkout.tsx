@@ -1,6 +1,5 @@
 import { currentCartV2 } from '@wix/ecom';
 import {
-  FOXPOST_CARRIER_APP_ID,
   FOXPOST_CODE,
   type DeliveryAddress,
   type FoxpostPoint,
@@ -95,13 +94,11 @@ class NutriAFoxpostCheckout extends HTMLElement {
 
   private get isFoxpostSelected(): boolean {
     const optionId = this.getAttribute('selected-delivery-option-id') || '';
-    const carrierId = this.getAttribute('selected-delivery-option-carrier-id') || '';
 
-    return (
-      carrierId === FOXPOST_CARRIER_APP_ID ||
-      optionId === FOXPOST_CODE ||
-      optionId.startsWith(`${FOXPOST_CODE}:`)
-    );
+    // Do not infer selection from the carrier ID alone. Wix can expose the
+    // carrier before the buyer has actually selected a delivery option,
+    // which would block the address-step Continue button too early.
+    return optionId === FOXPOST_CODE || optionId.startsWith(`${FOXPOST_CODE}:`);
   }
 
   private get deliveryStepState(): string {
