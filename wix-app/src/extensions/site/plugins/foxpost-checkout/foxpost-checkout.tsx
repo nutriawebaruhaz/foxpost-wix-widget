@@ -4,7 +4,8 @@ import {
   FOXPOST_CODE,
   type DeliveryAddress,
   type FoxpostPoint,
-  buildFoxpostDeliveryAddress,
+  buildFoxpostCartAddress,
+  foxpostPointFromAddressLine2,
   foxpostPointId,
   foxpostPointIdFromAddressLine2,
   isFoxpostDeliveryAddress,
@@ -188,12 +189,17 @@ class NutriAFoxpostCheckout extends HTMLElement {
       const response = await currentCartV2.getCurrentCart();
       const address = response.cart?.deliveryInfo?.address as DeliveryAddress | undefined;
       const pointId = foxpostPointIdFromAddressLine2(address?.addressLine2);
+      const storedPoint = foxpostPointFromAddressLine2(address?.addressLine2);
 
       if (!pointId) {
         this.savePreviousAddress(address);
         this.selectedPoint = null;
         this.pickerOpen = true;
+      } else if (storedPoint && isSelectableFoxpostPoint(storedPoint)) {
+        this.selectedPoint = storedPoint;
+        this.pickerOpen = false;
       } else {
+        // Legacy dev-cart fallback.
         const addressLine2 = address?.addressLine2 || '';
         const label = addressLine2
           .replace(/\s*[·|-]\s*FOXPOST\s+[A-Z0-9-]+.*$/i, '')
@@ -217,7 +223,7 @@ class NutriAFoxpostCheckout extends HTMLElement {
 
       this.errorMessage = '';
     } catch (error) {
-      console.error('FOXPOST: current cart sync failed', error);
+      console.error('Foxpost: current cart sync failed', error);
     }
 
     this.applyContinueState();
@@ -258,7 +264,7 @@ class NutriAFoxpostCheckout extends HTMLElement {
         await this.refreshCheckoutCallback();
       }
     } catch (error) {
-      console.error('FOXPOST: previous delivery address restore failed', error);
+      console.error('Foxpost: previous delivery address restore failed', error);
     }
 
     this.applyContinueState();
@@ -296,33 +302,52 @@ class NutriAFoxpostCheckout extends HTMLElement {
       const current = await currentCartV2.getCurrentCart();
       const currentAddress = current.cart?.deliveryInfo?.address as DeliveryAddress | undefined;
       const currentBillingAddress = current.cart?.paymentInfo?.billingAddress as DeliveryAddress | undefined;
-      this.savePreviousAddress(currentAddress);
 
-      const address = buildFoxpostDeliveryAddress(point);
-      const billingAddress =
-        currentBillingAddress ??
-        (!isFoxpostDeliveryAddress(currentAddress)
+      const customerAddress =
+        !isFoxpostDeliveryAddress(currentAddress)
           ? currentAddress
-          : this.previousDeliveryAddress);
+          : this.previousDeliveryAddress ?? currentAddress;
+
+      this.savePreviousAddress(customerAddress);
+
+      const billingAddress =
+        currentBillingAddress && !isFoxpostDeliveryAddress(currentBillingAddress)
+          ? currentBillingAddress
+          : this.previousDeliveryAddress ?? customerAddress;
+
+      const cartAddress = buildFoxpostCartAddress(customerAddress, point);
+      const cleanBillingAddress = billingAddress
+        ? sanitizeDeliveryAddress(billingAddress)
+        : undefined;
 
       await currentCartV2.updateCurrentCart({
         deliveryInfo: {
-          address,
+          address: cartAddress,
         },
-        ...(billingAddress
+        ...(cleanBillingAddress
           ? {
               paymentInfo: {
-                billingAddress: sanitizeDeliveryAddress(billingAddress),
+                billingAddress: cleanBillingAddress,
               },
             }
           : {}),
       });
 
-      // Re-select the rate after the destination changes so Wix recalculates
-      // pickupDetails and refreshes the address shown in the native card.
+      // Re-select the rate after the marker changes so Wix recalculates the
+      // native pickupDetails address from the selected Foxpost point.
       await currentCartV2.setDeliveryMethodForCurrentCart({
         code: FOXPOST_CODE,
       });
+
+      // Wix may re-sync billing from delivery while recalculating the method.
+      // Re-assert the customer's original billing address afterwards.
+      if (cleanBillingAddress) {
+        await currentCartV2.updateCurrentCart({
+          paymentInfo: {
+            billingAddress: cleanBillingAddress,
+          },
+        });
+      }
 
       this.selectedPoint = point;
       // Keep the picker visible for the rest of the delivery step. It disappears
@@ -332,7 +357,7 @@ class NutriAFoxpostCheckout extends HTMLElement {
         await this.refreshCheckoutCallback();
       }
     } catch (error) {
-      console.error('FOXPOST: pickup point save failed', error);
+      console.error('Foxpost: pickup point save failed', error);
       this.errorMessage = 'Nem sikerült elmenteni az átvételi pontot. Kérjük, próbáld újra.';
       this.pickerOpen = true;
     } finally {
