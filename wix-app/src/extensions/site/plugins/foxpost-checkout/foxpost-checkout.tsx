@@ -1,10 +1,10 @@
 import { currentCartV2 } from '@wix/ecom';
 import {
+  FOXPOST_CARRIER_APP_ID,
   FOXPOST_CODE,
   type DeliveryAddress,
   type FoxpostPoint,
-  buildFoxpostCartAddress,
-  foxpostPointFromAddressLine2,
+  buildFoxpostDeliveryAddress,
   foxpostPointId,
   foxpostPointIdFromAddressLine2,
   isFoxpostDeliveryAddress,
@@ -58,12 +58,7 @@ class NutriAFoxpostCheckout extends HTMLElement {
     window.addEventListener('message', this.handleFoxpostMessage);
     this.readBrand();
     this.loadPreviousAddress();
-
-    // Do not touch the cart before Wix actually opens the delivery-method step.
-    if (this.deliveryStepState === 'open') {
-      void this.handleDeliveryOptionState();
-    }
-
+    void this.handleDeliveryOptionState();
     this.render();
   }
 
@@ -77,13 +72,9 @@ class NutriAFoxpostCheckout extends HTMLElement {
     }
 
     if (
-      this.deliveryStepState === 'open' &&
-      (
-        name === 'selected-delivery-option-id' ||
-        name === 'selected-delivery-option-carrier-id' ||
-        name === 'checkout-updated-date' ||
-        name === 'delivery-step-state'
-      )
+      name === 'selected-delivery-option-id' ||
+      name === 'selected-delivery-option-carrier-id' ||
+      name === 'checkout-updated-date'
     ) {
       void this.handleDeliveryOptionState();
     }
@@ -97,24 +88,23 @@ class NutriAFoxpostCheckout extends HTMLElement {
   }
 
   disableContinueButton(callback: (isDisabled: boolean) => void) {
-    // Diagnostic bypass: never block Wix Checkout's Continue button.
-    // Once the checkout flow is verified end-to-end, blocking will be
-    // reintroduced only at the exact delivery-step point where Wix supports it.
     this.continueButtonCallback = callback;
-    callback(false);
+    this.applyContinueState();
   }
 
   private get isFoxpostSelected(): boolean {
     const optionId = this.getAttribute('selected-delivery-option-id') || '';
+    const carrierId = this.getAttribute('selected-delivery-option-carrier-id') || '';
 
-    // Do not infer selection from the carrier ID alone. Wix can expose the
-    // carrier before the buyer has actually selected a delivery option,
-    // which would block the address-step Continue button too early.
-    return optionId === FOXPOST_CODE || optionId.startsWith(`${FOXPOST_CODE}:`);
+    return (
+      carrierId === FOXPOST_CARRIER_APP_ID ||
+      optionId === FOXPOST_CODE ||
+      optionId.startsWith(`${FOXPOST_CODE}:`)
+    );
   }
 
   private get deliveryStepState(): string {
-    return this.getAttribute('delivery-step-state') || '';
+    return this.getAttribute('delivery-step-state') || 'open';
   }
 
   private get storageKey(): string {
@@ -177,8 +167,11 @@ class NutriAFoxpostCheckout extends HTMLElement {
       return;
     }
 
-    // Diagnostic bypass: the Foxpost site plugin must not block Continue.
-    this.continueButtonCallback(false);
+    const shouldDisable =
+      this.isFoxpostSelected &&
+      (!this.selectedPoint || this.saving || Boolean(this.errorMessage));
+
+    this.continueButtonCallback(shouldDisable);
   }
 
   private async handleDeliveryOptionState() {
@@ -195,17 +188,12 @@ class NutriAFoxpostCheckout extends HTMLElement {
       const response = await currentCartV2.getCurrentCart();
       const address = response.cart?.deliveryInfo?.address as DeliveryAddress | undefined;
       const pointId = foxpostPointIdFromAddressLine2(address?.addressLine2);
-      const storedPoint = foxpostPointFromAddressLine2(address?.addressLine2);
 
       if (!pointId) {
         this.savePreviousAddress(address);
         this.selectedPoint = null;
         this.pickerOpen = true;
-      } else if (storedPoint && isSelectableFoxpostPoint(storedPoint)) {
-        this.selectedPoint = storedPoint;
-        this.pickerOpen = false;
       } else {
-        // Backwards compatibility for carts created with the legacy marker.
         const addressLine2 = address?.addressLine2 || '';
         const label = addressLine2
           .replace(/\s*[·|-]\s*FOXPOST\s+[A-Z0-9-]+.*$/i, '')
@@ -229,7 +217,7 @@ class NutriAFoxpostCheckout extends HTMLElement {
 
       this.errorMessage = '';
     } catch (error) {
-      console.error('Foxpost: current cart sync failed', error);
+      console.error('FOXPOST: current cart sync failed', error);
     }
 
     this.applyContinueState();
@@ -270,7 +258,7 @@ class NutriAFoxpostCheckout extends HTMLElement {
         await this.refreshCheckoutCallback();
       }
     } catch (error) {
-      console.error('Foxpost: previous delivery address restore failed', error);
+      console.error('FOXPOST: previous delivery address restore failed', error);
     }
 
     this.applyContinueState();
@@ -307,28 +295,14 @@ class NutriAFoxpostCheckout extends HTMLElement {
     try {
       const current = await currentCartV2.getCurrentCart();
       const currentAddress = current.cart?.deliveryInfo?.address as DeliveryAddress | undefined;
-      const existingBillingAddress = current.cart?.paymentInfo?.billingAddress as DeliveryAddress | undefined;
-
       this.savePreviousAddress(currentAddress);
 
-      const address = buildFoxpostCartAddress(currentAddress, point);
-      const billingSource =
-        existingBillingAddress ??
-        (!isFoxpostDeliveryAddress(currentAddress)
-          ? currentAddress
-          : this.previousDeliveryAddress);
+      const address = buildFoxpostDeliveryAddress(point);
 
       await currentCartV2.updateCurrentCart({
         deliveryInfo: {
           address,
         },
-        ...(billingSource
-          ? {
-              paymentInfo: {
-                billingAddress: sanitizeDeliveryAddress(billingSource),
-              },
-            }
-          : {}),
       });
 
       this.selectedPoint = point;
@@ -338,7 +312,7 @@ class NutriAFoxpostCheckout extends HTMLElement {
         await this.refreshCheckoutCallback();
       }
     } catch (error) {
-      console.error('Foxpost: pickup point save failed', error);
+      console.error('FOXPOST: pickup point save failed', error);
       this.errorMessage = 'Nem sikerült elmenteni az átvételi pontot. Kérjük, próbáld újra.';
       this.pickerOpen = true;
     } finally {
