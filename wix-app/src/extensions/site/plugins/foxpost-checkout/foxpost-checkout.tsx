@@ -212,7 +212,7 @@ class NutriAFoxpostCheckout extends HTMLElement {
 
         this.selectedPoint = {
           operator_id: pointId,
-          name: label || 'FOXPOST átvételi pont',
+          name: label || 'Foxpost átvételi pont',
           ...(address?.postalCode ? { zip: address.postalCode } : {}),
           ...(address?.city ? { city: address.city } : {}),
           ...(restoredStreet ? { street: restoredStreet } : {}),
@@ -223,7 +223,7 @@ class NutriAFoxpostCheckout extends HTMLElement {
 
       this.errorMessage = '';
     } catch (error) {
-      console.error('FOXPOST: current cart sync failed', error);
+      console.error('Foxpost: current cart sync failed', error);
     }
 
     this.applyContinueState();
@@ -264,7 +264,7 @@ class NutriAFoxpostCheckout extends HTMLElement {
         await this.refreshCheckoutCallback();
       }
     } catch (error) {
-      console.error('FOXPOST: previous delivery address restore failed', error);
+      console.error('Foxpost: previous delivery address restore failed', error);
     }
 
     this.applyContinueState();
@@ -332,7 +332,7 @@ class NutriAFoxpostCheckout extends HTMLElement {
         await this.refreshCheckoutCallback();
       }
     } catch (error) {
-      console.error('FOXPOST: pickup point save failed', error);
+      console.error('Foxpost: pickup point save failed', error);
       this.errorMessage = 'Nem sikerült elmenteni az átvételi pontot. Kérjük, próbáld újra.';
       this.pickerOpen = true;
     } finally {
@@ -362,9 +362,9 @@ class NutriAFoxpostCheckout extends HTMLElement {
       ">
         <div style="font-size:20px;line-height:1;">✓</div>
         <div style="flex:1;min-width:0;">
-          <div style="font-weight:700;">${escapeHtml(point.name || 'FOXPOST átvételi pont')}</div>
+          <div style="font-weight:700;">${escapeHtml(point.name || 'Foxpost átvételi pont')}</div>
           <div style="margin-top:4px;font-size:13px;opacity:.8;">${escapeHtml(address)}</div>
-          <div style="margin-top:3px;font-size:12px;opacity:.65;">FOXPOST ${escapeHtml(pointId)}</div>
+          <div style="margin-top:3px;font-size:12px;opacity:.65;">Foxpost ${escapeHtml(pointId)}</div>
         </div>
         ${this.deliveryStepState === 'open' ? `
           <button id="foxpost-change-point" type="button" style="
@@ -408,7 +408,7 @@ class NutriAFoxpostCheckout extends HTMLElement {
           overflow:hidden;
         ">
           <div style="padding:16px;">
-            <div style="font-size:16px;font-weight:700;">FOXPOST átvételi pont</div>
+            <div style="font-size:16px;font-weight:700;">Foxpost átvételi pont</div>
             <div style="margin-top:4px;font-size:13px;opacity:.75;">
               Válassz automatát vagy átvételi pontot. A kiválasztott cím automatikusan bekerül a rendelés szállítási adataiba.
             </div>
@@ -429,7 +429,7 @@ class NutriAFoxpostCheckout extends HTMLElement {
           ${showPicker ? `
             <div style="padding:0 16px 16px;">
               <iframe
-                title="FOXPOST átvételi pont választó"
+                title="Foxpost átvételi pont választó"
                 src="${FOXPOST_PICKER_URL}"
                 loading="lazy"
                 style="
