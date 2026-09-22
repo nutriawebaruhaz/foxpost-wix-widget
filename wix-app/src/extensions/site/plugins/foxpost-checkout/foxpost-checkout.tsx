@@ -105,7 +105,7 @@ class NutriAFoxpostCheckout extends HTMLElement {
   }
 
   private get deliveryStepState(): string {
-    return this.getAttribute('delivery-step-state') || 'open';
+    return this.getAttribute('delivery-step-state') || '';
   }
 
   private get storageKey(): string {
@@ -169,6 +169,7 @@ class NutriAFoxpostCheckout extends HTMLElement {
     }
 
     const shouldDisable =
+      this.deliveryStepState === 'open' &&
       this.isFoxpostSelected &&
       (!this.selectedPoint || this.saving || Boolean(this.errorMessage));
 
