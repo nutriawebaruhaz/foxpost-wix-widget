@@ -22,7 +22,7 @@ type SlotBrand = {
 };
 
 const FOXPOST_ORIGIN = 'https://cdn.foxpost.hu';
-const FOXPOST_PICKER_URL = 'https://cdn.foxpost.hu/apt-finder/v1/app/?lang=hu&noHeader=1&noSearchTitle=1&noAptCount=1';
+const FOXPOST_PICKER_URL = 'https://cdn.foxpost.hu/apt-finder/v1/app/?lang=hu';
 
 function escapeHtml(value: unknown): string {
   return String(value ?? '')
@@ -289,28 +289,44 @@ class NutriAFoxpostCheckout extends HTMLElement {
     this.saving = true;
     this.errorMessage = '';
     this.selectedPoint = point;
-    // The Foxpost widget posts the point only after its final "Kiválasztom"
-    // action. Collapse the picker immediately once that confirmed selection
-    // reaches the parent checkout; reopen it only if saving fails.
-    this.pickerOpen = false;
     this.applyContinueState();
     this.render();
 
     try {
       const current = await currentCartV2.getCurrentCart();
       const currentAddress = current.cart?.deliveryInfo?.address as DeliveryAddress | undefined;
+      const currentBillingAddress = current.cart?.paymentInfo?.billingAddress as DeliveryAddress | undefined;
       this.savePreviousAddress(currentAddress);
 
       const address = buildFoxpostDeliveryAddress(point);
+      const billingAddress =
+        currentBillingAddress ??
+        (!isFoxpostDeliveryAddress(currentAddress)
+          ? currentAddress
+          : this.previousDeliveryAddress);
 
       await currentCartV2.updateCurrentCart({
         deliveryInfo: {
           address,
         },
+        ...(billingAddress
+          ? {
+              paymentInfo: {
+                billingAddress: sanitizeDeliveryAddress(billingAddress),
+              },
+            }
+          : {}),
+      });
+
+      // Re-select the rate after the destination changes so Wix recalculates
+      // pickupDetails and refreshes the address shown in the native card.
+      await currentCartV2.setDeliveryMethodForCurrentCart({
+        code: FOXPOST_CODE,
       });
 
       this.selectedPoint = point;
-      this.pickerOpen = false;
+      // Keep the picker visible for the rest of the delivery step. It disappears
+      // only when the buyer continues to the payment step.
 
       if (this.refreshCheckoutCallback) {
         await this.refreshCheckoutCallback();
@@ -366,9 +382,11 @@ class NutriAFoxpostCheckout extends HTMLElement {
   }
 
   render() {
-    if (!this.isFoxpostSelected) {
+    if (!this.isFoxpostSelected || this.deliveryStepState === 'summary') {
       this.innerHTML = '';
-      this.applyContinueState();
+      if (this.continueButtonCallback) {
+        this.continueButtonCallback(false);
+      }
       return;
     }
 
@@ -378,9 +396,7 @@ class NutriAFoxpostCheckout extends HTMLElement {
     const buttonTextColor = this.brand.buttonTextColor || '#ffffff';
     const radius = this.brand.cornerRadius ?? 8;
 
-    const showPicker =
-      this.deliveryStepState === 'open' &&
-      (this.pickerOpen || !this.selectedPoint);
+    const showPicker = this.deliveryStepState === 'open';
 
     this.innerHTML = `
       <div style="background:${background};color:${textColor};padding:12px 0;">
@@ -394,7 +410,7 @@ class NutriAFoxpostCheckout extends HTMLElement {
           <div style="padding:16px;">
             <div style="font-size:16px;font-weight:700;">Foxpost átvételi pont</div>
             <div style="margin-top:4px;font-size:13px;opacity:.75;">
-              Válassz automatát vagy átvételi pontot, majd a térképen nyomd meg a „Kiválasztom” gombot.
+              Válassz automatát vagy átvételi pontot, majd a Foxpost térképen nyomd meg a „Kiválasztom” gombot.
             </div>
           </div>
 
@@ -418,7 +434,7 @@ class NutriAFoxpostCheckout extends HTMLElement {
                 loading="lazy"
                 style="
                   width:100%;
-                  height:720px;
+                  height:520px;
                   display:block;
                   border:0;
                   border-radius:${radius}px;
