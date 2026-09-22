@@ -58,7 +58,12 @@ class NutriAFoxpostCheckout extends HTMLElement {
     window.addEventListener('message', this.handleFoxpostMessage);
     this.readBrand();
     this.loadPreviousAddress();
-    void this.handleDeliveryOptionState();
+
+    // Do not touch the cart before Wix actually opens the delivery-method step.
+    if (this.deliveryStepState === 'open') {
+      void this.handleDeliveryOptionState();
+    }
+
     this.render();
   }
 
@@ -72,9 +77,13 @@ class NutriAFoxpostCheckout extends HTMLElement {
     }
 
     if (
-      name === 'selected-delivery-option-id' ||
-      name === 'selected-delivery-option-carrier-id' ||
-      name === 'checkout-updated-date'
+      this.deliveryStepState === 'open' &&
+      (
+        name === 'selected-delivery-option-id' ||
+        name === 'selected-delivery-option-carrier-id' ||
+        name === 'checkout-updated-date' ||
+        name === 'delivery-step-state'
+      )
     ) {
       void this.handleDeliveryOptionState();
     }
