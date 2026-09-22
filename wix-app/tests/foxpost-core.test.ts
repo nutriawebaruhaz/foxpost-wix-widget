@@ -1,18 +1,21 @@
 import assert from 'node:assert/strict';
 import {
   FOXPOST_CODE,
-  buildFoxpostDeliveryAddress,
+  buildFoxpostCartAddress,
+  buildFoxpostPickupAddress,
+  buildFoxpostPointMarker,
   buildFoxpostShippingRate,
   cartValue,
+  foxpostPointFromAddressLine2,
   foxpostPointId,
   foxpostPointIdFromAddressLine2,
   foxpostShippingPrice,
   isFoxpostDeliveryAddress,
   isSelectableFoxpostPoint,
+  sanitizeDeliveryAddress,
   shouldBlockFoxpostCheckout,
   shouldOfferFoxpost,
   splitStreet,
-  sanitizeDeliveryAddress,
 } from '../src/lib/foxpost-core';
 
 const foxpostPoint = {
@@ -37,6 +40,14 @@ const packetaPoint = {
   country: 'hu',
 };
 
+const customerAddress = {
+  streetAddress: { name: 'Baross utca', number: '41.' },
+  city: 'Budapest',
+  subdivision: 'HU-BU',
+  country: 'HU',
+  postalCode: '1093',
+};
+
 function test(name: string, fn: () => void) {
   try {
     fn();
@@ -47,7 +58,7 @@ function test(name: string, fn: () => void) {
   }
 }
 
-test('FOXPOST operator_id is preferred and normalized', () => {
+test('Foxpost operator_id is preferred and normalized', () => {
   assert.equal(foxpostPointId(foxpostPoint), 'HU5516');
 });
 
@@ -75,22 +86,46 @@ test('Street parser separates ordinary Hungarian house number', () => {
   });
 });
 
-test('FOXPOST delivery address contains customer-visible point and internal ID marker', () => {
-  const address = buildFoxpostDeliveryAddress(foxpostPoint);
+test('Foxpost pickup address contains only the selected pickup point', () => {
+  const address = buildFoxpostPickupAddress(foxpostPoint);
   assert.equal(address.country, 'HU');
   assert.equal(address.postalCode, '9081');
   assert.equal(address.city, 'Győrújbarát');
   assert.equal(address.streetAddress?.name, 'István utca');
   assert.equal(address.streetAddress?.number, '67.');
-  assert.equal(address.addressLine2, 'Győrújbarát Gabi Cukrászat · Foxpost HU5516');
-  assert.equal(foxpostPointIdFromAddressLine2(address.addressLine2), 'HU5516');
-  assert.equal(isFoxpostDeliveryAddress(address), true);
+  assert.equal(address.addressLine2, 'Győrújbarát Gabi Cukrászat');
+  assert.notEqual(address.streetAddress?.name, customerAddress.streetAddress.name);
 });
 
-test('Packeta delivery address is also persisted with a stable fallback ID', () => {
-  const address = buildFoxpostDeliveryAddress(packetaPoint);
-  assert.match(address.addressLine2 || '', /Foxpost 987654$/);
+test('Cart address preserves customer address and stores Foxpost only in marker', () => {
+  const address = buildFoxpostCartAddress(customerAddress, foxpostPoint);
+
+  assert.equal(address.streetAddress?.name, 'Baross utca');
+  assert.equal(address.streetAddress?.number, '41.');
+  assert.equal(address.city, 'Budapest');
+  assert.equal(address.postalCode, '1093');
+  assert.equal(foxpostPointIdFromAddressLine2(address.addressLine2), 'HU5516');
   assert.equal(isFoxpostDeliveryAddress(address), true);
+
+  const restored = foxpostPointFromAddressLine2(address.addressLine2);
+  assert.ok(restored);
+  assert.equal(restored?.zip, '9081');
+  assert.equal(restored?.city, 'Győrújbarát');
+  assert.equal(restored?.street, 'István utca 67.');
+  assert.equal(restored?.name, 'Győrújbarát Gabi Cukrászat');
+});
+
+test('Foxpost marker round-trips Unicode and spaces safely', () => {
+  const marker = buildFoxpostPointMarker(foxpostPoint);
+  assert.match(marker, /^FP2\|HU5516\|HU\|/);
+  const restored = foxpostPointFromAddressLine2(marker);
+  assert.equal(restored?.name, foxpostPoint.name);
+  assert.equal(restored?.street, foxpostPoint.street);
+});
+
+test('Fallback pickup ID is persisted for a point without operator_id', () => {
+  const address = buildFoxpostCartAddress(customerAddress, packetaPoint);
+  assert.equal(foxpostPointIdFromAddressLine2(address.addressLine2), '987654');
 });
 
 test('Cart value uses totalPrice when available', () => {
@@ -113,29 +148,29 @@ test('Cart value falls back to price × quantity', () => {
   );
 });
 
-test('FOXPOST costs 1,990 HUF below free-shipping threshold', () => {
+test('Foxpost costs 1,990 HUF below free-shipping threshold', () => {
   assert.equal(foxpostShippingPrice([{ totalPrice: '29999' }]), 1990);
 });
 
-test('FOXPOST becomes free exactly at 30,000 HUF', () => {
+test('Foxpost becomes free exactly at 30,000 HUF', () => {
   assert.equal(foxpostShippingPrice([{ totalPrice: '30000' }]), 0);
 });
 
-test('FOXPOST stays free above 30,000 HUF', () => {
+test('Foxpost stays free above 30,000 HUF', () => {
   assert.equal(foxpostShippingPrice([{ totalPrice: '45000' }]), 0);
 });
 
-test('FOXPOST option is offered for Hungary/HUF and pre-address state', () => {
+test('Foxpost option is offered for Hungary/HUF and pre-address state', () => {
   assert.equal(shouldOfferFoxpost('HU', 'HUF'), true);
   assert.equal(shouldOfferFoxpost(undefined, 'HUF'), true);
 });
 
-test('FOXPOST option is not offered for foreign destination or non-HUF currency', () => {
+test('Foxpost option is not offered for foreign destination or non-HUF currency', () => {
   assert.equal(shouldOfferFoxpost('AT', 'HUF'), false);
   assert.equal(shouldOfferFoxpost('HU', 'EUR'), false);
 });
 
-test('Shipping rate before point selection is selectable but not yet pickupDetails', () => {
+test('Shipping rate before point selection is selectable but has no pickupDetails', () => {
   const rate = buildFoxpostShippingRate(
     {
       lineItems: [{ totalPrice: '12000' }],
@@ -146,12 +181,13 @@ test('Shipping rate before point selection is selectable but not yet pickupDetai
 
   assert.ok(rate);
   assert.equal(rate?.code, FOXPOST_CODE);
+  assert.equal(rate?.title, 'Foxpost automata / átvételi pont');
   assert.equal(rate?.price, '1990');
   assert.equal(rate?.pickupAddress, null);
 });
 
-test('Shipping rate after point selection becomes a PICKUP_POINT', () => {
-  const destination = buildFoxpostDeliveryAddress(foxpostPoint);
+test('Shipping rate after selection builds pickup address from marker, not buyer address', () => {
+  const destination = buildFoxpostCartAddress(customerAddress, foxpostPoint);
   const rate = buildFoxpostShippingRate(
     {
       lineItems: [{ totalPrice: '31000' }],
@@ -162,7 +198,14 @@ test('Shipping rate after point selection becomes a PICKUP_POINT', () => {
 
   assert.ok(rate);
   assert.equal(rate?.price, '0');
-  assert.deepEqual(rate?.pickupAddress, destination);
+  assert.deepEqual(
+    rate?.pickupAddress,
+    sanitizeDeliveryAddress(buildFoxpostPickupAddress(foxpostPoint))
+  );
+  assert.equal(rate?.pickupAddress?.postalCode, '9081');
+  assert.equal(rate?.pickupAddress?.streetAddress?.name, 'István utca');
+  assert.notEqual(rate?.pickupAddress?.postalCode, customerAddress.postalCode);
+  assert.notEqual(rate?.pickupAddress?.streetAddress?.name, customerAddress.streetAddress.name);
 });
 
 test('Wix pickup address output removes null fields', () => {
@@ -173,19 +216,19 @@ test('Wix pickup address output removes null fields', () => {
       subdivision: null,
       country: 'HU',
       postalCode: '1117',
-      addressLine2: 'Packeta Z-Pont · Foxpost 987654',
+      addressLine2: 'Packeta Z-Pont',
     }),
     {
       streetAddress: { name: 'Példa utca' },
       city: 'Budapest',
       country: 'HU',
       postalCode: '1117',
-      addressLine2: 'Packeta Z-Pont · Foxpost 987654',
+      addressLine2: 'Packeta Z-Pont',
     }
   );
 });
 
-test('FOXPOST checkout is blocked until a pickup address is present', () => {
+test('Foxpost checkout is blocked until the marker is present', () => {
   assert.equal(
     shouldBlockFoxpostCheckout(FOXPOST_CODE, { country: 'HU' }),
     true
@@ -193,17 +236,17 @@ test('FOXPOST checkout is blocked until a pickup address is present', () => {
   assert.equal(
     shouldBlockFoxpostCheckout(
       FOXPOST_CODE,
-      buildFoxpostDeliveryAddress(foxpostPoint)
+      buildFoxpostCartAddress(customerAddress, foxpostPoint)
     ),
     false
   );
 });
 
-test('Validation never blocks a non-FOXPOST delivery method', () => {
+test('Validation never blocks a non-Foxpost delivery method', () => {
   assert.equal(
     shouldBlockFoxpostCheckout('gls_home', { country: 'HU' }),
     false
   );
 });
 
-console.log('\nAll FOXPOST core flow tests passed.');
+console.log('\nAll Foxpost core flow tests passed.');
