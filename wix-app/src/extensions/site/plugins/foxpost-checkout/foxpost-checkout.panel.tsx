@@ -12,7 +12,7 @@ const Panel: FC = () => (
       <SidePanel.Content noPadding stretchVertically>
         <SidePanel.Field>
           <Text>
-            A FOXPOST checkout plugin beállításai a Nutri-A alkalmazásból kezelhetők.
+            A Foxpost checkout plugin beállításai a Nutri-A alkalmazásból kezelhetők.
           </Text>
         </SidePanel.Field>
       </SidePanel.Content>
