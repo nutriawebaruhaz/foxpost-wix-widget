@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {
+  FOXPOST_CARRIER_APP_ID,
   FOXPOST_CODE,
   buildFoxpostCartAddress,
   buildFoxpostPickupAddress,
@@ -57,6 +58,10 @@ function test(name: string, fn: () => void) {
     throw error;
   }
 }
+
+test('Foxpost checkout uses the released app ID for carrier detection', () => {
+  assert.equal(FOXPOST_CARRIER_APP_ID, 'ae3fcc51-5b48-49ea-ba28-ab54d642679b');
+});
 
 test('Foxpost operator_id is preferred and normalized', () => {
   assert.equal(foxpostPointId(foxpostPoint), 'HU5516');
