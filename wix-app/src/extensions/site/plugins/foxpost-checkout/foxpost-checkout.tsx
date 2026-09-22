@@ -22,7 +22,7 @@ type SlotBrand = {
 };
 
 const FOXPOST_ORIGIN = 'https://cdn.foxpost.hu';
-const FOXPOST_PICKER_URL = 'https://cdn.foxpost.hu/apt-finder/v1/app/?lang=hu';
+const FOXPOST_PICKER_URL = 'https://cdn.foxpost.hu/apt-finder/v1/app/?lang=hu&noHeader=1&noSearchTitle=1&noAptCount=1';
 
 function escapeHtml(value: unknown): string {
   return String(value ?? '')
@@ -289,6 +289,10 @@ class NutriAFoxpostCheckout extends HTMLElement {
     this.saving = true;
     this.errorMessage = '';
     this.selectedPoint = point;
+    // The Foxpost widget posts the point only after its final "Kiválasztom"
+    // action. Collapse the picker immediately once that confirmed selection
+    // reaches the parent checkout; reopen it only if saving fails.
+    this.pickerOpen = false;
     this.applyContinueState();
     this.render();
 
@@ -390,7 +394,7 @@ class NutriAFoxpostCheckout extends HTMLElement {
           <div style="padding:16px;">
             <div style="font-size:16px;font-weight:700;">Foxpost átvételi pont</div>
             <div style="margin-top:4px;font-size:13px;opacity:.75;">
-              Válassz automatát vagy átvételi pontot. A kiválasztott cím automatikusan bekerül a rendelés szállítási adataiba.
+              Válassz automatát vagy átvételi pontot, majd a térképen nyomd meg a „Kiválasztom” gombot.
             </div>
           </div>
 
@@ -414,7 +418,7 @@ class NutriAFoxpostCheckout extends HTMLElement {
                 loading="lazy"
                 style="
                   width:100%;
-                  height:520px;
+                  height:720px;
                   display:block;
                   border:0;
                   border-radius:${radius}px;
