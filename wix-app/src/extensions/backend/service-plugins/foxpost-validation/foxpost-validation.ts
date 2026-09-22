@@ -26,7 +26,7 @@ export default validations.provideHandlers({
             },
           },
           description:
-            'FOXPOST szállításnál válassz csomagautomatát vagy átvételi pontot a folytatáshoz.',
+            'Foxpost szállításnál válassz csomagautomatát vagy átvételi pontot a folytatáshoz.',
         },
       ],
     };
