@@ -30,11 +30,11 @@ export default function FoxpostSetupPage() {
       });
 
       dashboard.showToast({
-        message: 'A FOXPOST checkout plugin hozzáadásra került.',
+        message: 'A Foxpost checkout plugin hozzáadásra került.',
         type: 'success',
       });
     } catch (error) {
-      console.error('FOXPOST plugin add failed', error);
+      console.error('Foxpost plugin add failed', error);
 
       dashboard.showToast({
         message: 'A plugin nem került hozzáadásra. Lehet, hogy már telepítve van.',
@@ -48,21 +48,21 @@ export default function FoxpostSetupPage() {
   return (
     <WixDesignSystemProvider>
       <Page>
-        <Page.Header title="FOXPOST Checkout" />
+        <Page.Header title="Foxpost Checkout" />
         <Page.Content>
           <Card>
             <Card.Header title="Checkout integráció" />
             <Card.Content>
               <Box direction="vertical" gap="SP3">
                 <Text>
-                  A FOXPOST átvételi pont választó a checkout szállítási opciói alatt jelenik meg.
+                  A Foxpost átvételi pont választó a checkout szállítási opciói alatt jelenik meg.
                 </Text>
                 <Text secondary>
                   A gomb csak kiadott appverzió után használható. Fejlesztés közben ne add hozzá az élő checkouthoz.
                 </Text>
                 <Box>
                   <Button onClick={addPlugin} disabled={adding}>
-                    {adding ? 'Hozzáadás…' : 'FOXPOST plugin hozzáadása'}
+                    {adding ? 'Hozzáadás…' : 'Foxpost plugin hozzáadása'}
                   </Button>
                 </Box>
               </Box>
