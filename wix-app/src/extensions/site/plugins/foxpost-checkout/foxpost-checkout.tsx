@@ -88,8 +88,11 @@ class NutriAFoxpostCheckout extends HTMLElement {
   }
 
   disableContinueButton(callback: (isDisabled: boolean) => void) {
+    // Diagnostic bypass: never block Wix Checkout's Continue button.
+    // Once the checkout flow is verified end-to-end, blocking will be
+    // reintroduced only at the exact delivery-step point where Wix supports it.
     this.continueButtonCallback = callback;
-    this.applyContinueState();
+    callback(false);
   }
 
   private get isFoxpostSelected(): boolean {
@@ -165,12 +168,8 @@ class NutriAFoxpostCheckout extends HTMLElement {
       return;
     }
 
-    const shouldDisable =
-      this.deliveryStepState === 'open' &&
-      this.isFoxpostSelected &&
-      (!this.selectedPoint || this.saving || Boolean(this.errorMessage));
-
-    this.continueButtonCallback(shouldDisable);
+    // Diagnostic bypass: the Foxpost site plugin must not block Continue.
+    this.continueButtonCallback(false);
   }
 
   private async handleDeliveryOptionState() {
