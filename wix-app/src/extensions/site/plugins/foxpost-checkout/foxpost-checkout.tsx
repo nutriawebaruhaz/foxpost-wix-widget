@@ -322,6 +322,32 @@ class NutriAFoxpostCheckout extends HTMLElement {
     }
   }
 
+  private renderDebug(): string {
+    const optionId = this.getAttribute('selected-delivery-option-id') || '(üres)';
+    const carrierId = this.getAttribute('selected-delivery-option-carrier-id') || '(üres)';
+    const stepState = this.getAttribute('delivery-step-state') || '(üres)';
+    const checkoutId = this.getAttribute('checkout-id') || '(üres)';
+
+    return `
+      <div style="
+        padding:12px;
+        margin:0 0 12px;
+        border:2px solid #ff9f1c;
+        background:#fff8e8;
+        color:#111;
+        font:12px/1.5 monospace;
+        border-radius:8px;
+        word-break:break-all;
+      ">
+        <strong>Foxpost debug · v1</strong><br>
+        option-id: ${escapeHtml(optionId)}<br>
+        carrier-id: ${escapeHtml(carrierId)}<br>
+        delivery-step-state: ${escapeHtml(stepState)}<br>
+        checkout-id: ${escapeHtml(checkoutId)}
+      </div>
+    `;
+  }
+
   private renderSelectedSummary(): string {
     if (!this.selectedPoint) {
       return '';
@@ -363,7 +389,7 @@ class NutriAFoxpostCheckout extends HTMLElement {
 
   render() {
     if (!this.isFoxpostSelected) {
-      this.innerHTML = '';
+      this.innerHTML = this.renderDebug();
       this.applyContinueState();
       return;
     }
@@ -379,6 +405,7 @@ class NutriAFoxpostCheckout extends HTMLElement {
       (this.pickerOpen || !this.selectedPoint);
 
     this.innerHTML = `
+      ${this.renderDebug()}
       <div style="background:${background};color:${textColor};padding:12px 0;">
         <div style="
           background:${background};
