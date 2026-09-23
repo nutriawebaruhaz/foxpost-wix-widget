@@ -12,11 +12,7 @@ import '@wix/design-system/styles.global.css';
 
 const PLUGIN_ID = '8c09c67c-c313-433c-9a62-1ce29f5bd414';
 
-const PLACEMENT = {
-  appDefinitionId: '1380b703-ce81-ff05-f115-39571d94dfcd',
-  widgetId: '14fd5970-8072-c276-1246-058b79e70c1a',
-  slotId: 'checkout:delivery-step:options:after',
-};
+const CHECKOUT_SLOT_ID = 'checkout:delivery-step:options:after';
 
 export default function FoxpostSetupPage() {
   const [adding, setAdding] = useState(false);
@@ -26,7 +22,7 @@ export default function FoxpostSetupPage() {
 
     try {
       await dashboard.addSitePlugin(PLUGIN_ID, {
-        placement: PLACEMENT,
+        slotId: CHECKOUT_SLOT_ID,
       });
 
       dashboard.showToast({
@@ -37,7 +33,7 @@ export default function FoxpostSetupPage() {
       console.error('FOXPOST plugin add failed', error);
 
       dashboard.showToast({
-        message: 'A plugin nem került hozzáadásra. Lehet, hogy már telepítve van.',
+        message: `A plugin hozzáadása nem sikerült: ${error instanceof Error ? error.message : String(error)}`,
         type: 'warning',
       });
     } finally {
