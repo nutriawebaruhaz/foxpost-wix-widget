@@ -15,7 +15,7 @@ export default extensions.sitePlugin({
     },
   ],
   installation: {
-    autoAdd: false,
+    autoAdd: true,
   },
   tagName: 'nutri-a-foxpost-checkout',
   element: './extensions/site/plugins/foxpost-checkout/foxpost-checkout.tsx',
